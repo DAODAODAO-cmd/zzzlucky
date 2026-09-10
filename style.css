@@ -593,6 +593,60 @@ input:focus { border-color: #9a86e6; box-shadow: 0 0 0 4px rgba(139,120,220,.1);
 @keyframes flip-rare-glow { 0% { filter: none; } 42% { filter: brightness(1.45) drop-shadow(0 0 10px rgba(110,156,232,.75)); } 68% { filter: brightness(1.12) drop-shadow(0 0 28px rgba(128,107,209,.55)); } 100% { filter: none; } }
 @keyframes flip-limited-glow { 0% { filter: none; } 32% { filter: brightness(1.75) drop-shadow(0 0 12px rgba(255,207,104,.9)); } 56% { filter: brightness(1.2) drop-shadow(0 0 38px rgba(239,141,157,.7)); } 78% { filter: brightness(1.42) drop-shadow(0 0 22px rgba(242,173,104,.65)); } 100% { filter: none; } }
 @keyframes color-burst { 0% { opacity: 0; transform: scale(.25); } 35% { opacity: .95; } 100% { opacity: 0; transform: scale(1.6); } }
+
+/* 三档结果使用三套不同的开奖动作，而不仅是换颜色 */
+.lottery-card.just-flipped.reveal-standard { animation: card-soft-settle .9s .2s ease both; }
+.lottery-card.just-flipped.reveal-rare { animation: card-rare-hover 1.2s .25s cubic-bezier(.2,.8,.2,1) both; z-index: 2; }
+.lottery-card.just-flipped.reveal-limited { animation: card-limited-impact 1.35s .2s cubic-bezier(.16,.86,.2,1) both; z-index: 3; }
+
+.scene-standard .modal-backdrop { animation: backdrop-soft .45s ease both; }
+.scene-rare .modal-backdrop { animation: backdrop-rare .7s ease both; }
+.scene-limited .modal-backdrop { animation: backdrop-limited .9s ease both; }
+.reveal-box.rarity-standard { animation: dialog-soft .5s cubic-bezier(.22,.82,.26,1.15) both; }
+.reveal-box.rarity-rare { animation: dialog-rare .75s cubic-bezier(.18,.85,.2,1.2) both; overflow: visible; }
+.reveal-box.rarity-limited { animation: dialog-limited 1s cubic-bezier(.16,.88,.2,1.18) both; overflow: visible; }
+.reveal-box > * { position: relative; z-index: 2; }
+
+.reveal-box.rarity-rare::before {
+  content: ""; position: absolute; z-index: 0; left: 50%; top: 50%; width: 155%; aspect-ratio: 1; border: 3px solid rgba(110,156,232,.42); border-radius: 50%; transform: translate(-50%,-50%); animation: rare-ring 1.45s .18s ease-out infinite; pointer-events: none;
+}
+.reveal-box.rarity-rare::after {
+  content: "✦  ✧  ✦  ✧"; position: absolute; z-index: 1; inset: -30px; color: #806bd1; font-size: 1.35rem; letter-spacing: 1.8rem; opacity: 0; animation: rare-stars 1.4s .28s ease-out both; pointer-events: none;
+}
+.reveal-box.rarity-limited::before {
+  content: ""; position: absolute; z-index: 0; left: 50%; top: 48%; width: 180%; aspect-ratio: 1; background: repeating-conic-gradient(from 0deg, rgba(255,207,104,.5) 0 7deg, transparent 7deg 18deg); border-radius: 50%; transform: translate(-50%,-50%); animation: limited-rays 7s linear infinite; pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle, transparent 0 24%, #000 45%, transparent 72%); mask-image: radial-gradient(circle, transparent 0 24%, #000 45%, transparent 72%);
+}
+.reveal-box.rarity-limited::after {
+  content: "✦"; position: absolute; z-index: 1; left: 50%; top: 27%; color: #f0a04f; font-size: 8rem; opacity: 0; transform: translate(-50%,-50%) scale(.2); animation: limited-star-burst 1.2s .08s ease-out both; pointer-events: none;
+}
+.particle-standard { border-radius: 50%; }
+.particle-rare { aspect-ratio: 1; height: var(--w); clip-path: polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%); }
+.particle-limited:nth-child(3n) { border-radius: 50%; }
+.particle-limited:nth-child(3n+1) { clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%); }
+
+@keyframes card-soft-settle { 0% { transform: scale(1); } 55% { transform: scale(1.035); } 100% { transform: scale(1); } }
+@keyframes card-rare-hover { 0% { transform: translateY(0) rotate(0); } 38% { transform: translateY(-18px) rotate(-3deg); } 63% { transform: translateY(-12px) rotate(2deg); } 100% { transform: translateY(0) rotate(0); } }
+@keyframes card-limited-impact { 0% { transform: scale(1) rotate(0); } 20% { transform: scale(.88) rotate(-4deg); } 46% { transform: scale(1.16) rotate(3deg); } 66% { transform: scale(1.07) rotate(-2deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes backdrop-soft { from { background: rgba(77,60,70,0); } to { background: rgba(77,60,70,.28); } }
+@keyframes backdrop-rare { 0% { background: rgba(79,92,160,0); } 45% { background: rgba(74,93,171,.48); } 100% { background: rgba(77,60,70,.34); } }
+@keyframes backdrop-limited { 0% { background: rgba(255,238,177,.85); } 28% { background: rgba(236,157,111,.55); } 100% { background: rgba(77,60,70,.38); } }
+@keyframes dialog-soft { from { opacity: 0; transform: translateY(14px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes dialog-rare { 0% { opacity: 0; transform: scale(.55) rotate(-7deg); } 55% { opacity: 1; transform: scale(1.06) rotate(2deg); } 78% { transform: scale(.98) rotate(-1deg); } 100% { transform: none; } }
+@keyframes dialog-limited { 0% { opacity: 0; transform: scale(.35) rotate(10deg); } 30% { opacity: 1; transform: scale(1.14) rotate(-4deg); } 52% { transform: scale(.94) rotate(2deg); } 72% { transform: scale(1.04) rotate(-1deg); } 100% { transform: none; } }
+@keyframes rare-ring { 0% { opacity: .8; transform: translate(-50%,-50%) scale(.45); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.15); } }
+@keyframes rare-stars { 0% { opacity: 0; transform: scale(.6) rotate(-12deg); } 38% { opacity: .9; } 100% { opacity: 0; transform: scale(1.18) rotate(12deg); } }
+@keyframes limited-rays { to { transform: translate(-50%,-50%) rotate(360deg); } }
+@keyframes limited-star-burst { 0% { opacity: .9; transform: translate(-50%,-50%) scale(.15) rotate(0); } 55% { opacity: .55; } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.8) rotate(80deg); } }
+
+@media (max-width: 780px) {
+  .lottery-card.just-flipped.reveal-rare { animation-name: card-rare-hover-mobile; }
+  .lottery-card.just-flipped.reveal-limited { animation-name: card-limited-impact-mobile; }
+  .reveal-box.rarity-rare::before { width: 125%; }
+  .reveal-box.rarity-limited::before { width: 145%; }
+}
+@keyframes card-rare-hover-mobile { 0% { transform: translateY(0); } 42% { transform: translateY(-12px) rotate(-2deg); } 68% { transform: translateY(-7px) rotate(2deg); } 100% { transform: none; } }
+@keyframes card-limited-impact-mobile { 0% { transform: scale(1); } 22% { transform: scale(.9); } 48% { transform: scale(1.12) rotate(2deg); } 70% { transform: scale(1.04) rotate(-1deg); } 100% { transform: none; } }
 .history-item { background: rgba(255,255,255,.78); border: 1px solid #eee7ea; }
 .history-number { color: var(--violet); background: #f5f1fb; }
 .history-result.win { color: #d27a4a; }
