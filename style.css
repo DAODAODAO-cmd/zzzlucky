@@ -579,7 +579,20 @@ input:focus { border-color: #9a86e6; box-shadow: 0 0 0 4px rgba(139,120,220,.1);
 .rarity-tag.rarity-limited { color: #765022; background: #ffe59c; }
 .reveal-box.rarity-rare { border-color: #8ca8e8; background: radial-gradient(circle at 50% 0, rgba(116,128,220,.22), transparent 58%), #fff; }
 .reveal-box.rarity-limited { border-color: #efb069; background: radial-gradient(circle at 50% 0, rgba(255,201,105,.3), transparent 58%), #fff; }
+.reveal-box.rarity-standard { border-color: #cfc4ec; background: radial-gradient(circle at 50% 0, rgba(183,168,228,.16), transparent 58%), #fff; }
+.reveal-box.rarity-rare .reveal-icon { color: #fff; background: linear-gradient(145deg, #6e9ce8, #806bd1); box-shadow: 0 0 0 10px rgba(110,156,232,.1), 0 14px 35px rgba(100,107,205,.25); }
+.reveal-box.rarity-limited .reveal-icon { color: #6c471d; background: linear-gradient(145deg, #fff1a8, #f2ad68 55%, #ef8d9d); box-shadow: 0 0 0 12px rgba(255,207,104,.12), 0 16px 42px rgba(232,161,90,.32); }
+.lottery-card.just-flipped.reveal-standard .card-inner { animation: flip-standard-glow .85s ease both; }
+.lottery-card.just-flipped.reveal-rare .card-inner { animation: flip-rare-glow 1.08s cubic-bezier(.2,.75,.22,1) both; }
+.lottery-card.just-flipped.reveal-limited .card-inner { animation: flip-limited-glow 1.25s cubic-bezier(.18,.8,.2,1) both; }
+.lottery-card.reveal-rare .card-back::before, .lottery-card.reveal-limited .card-back::before { content: ""; position: absolute; inset: -30%; border-radius: 50%; opacity: 0; pointer-events: none; }
+.lottery-card.reveal-rare .card-back::before { background: radial-gradient(circle, rgba(255,255,255,.72), transparent 55%); animation: color-burst .9s .34s ease-out; }
+.lottery-card.reveal-limited .card-back::before { background: radial-gradient(circle, rgba(255,246,184,.9), rgba(239,141,157,.24) 42%, transparent 65%); animation: color-burst 1.2s .3s ease-out; }
 @keyframes rarity-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.13) rotate(8deg); } }
+@keyframes flip-standard-glow { 0% { filter: none; } 55% { filter: brightness(1.08) drop-shadow(0 0 12px rgba(139,120,220,.2)); } 100% { filter: none; } }
+@keyframes flip-rare-glow { 0% { filter: none; } 42% { filter: brightness(1.45) drop-shadow(0 0 10px rgba(110,156,232,.75)); } 68% { filter: brightness(1.12) drop-shadow(0 0 28px rgba(128,107,209,.55)); } 100% { filter: none; } }
+@keyframes flip-limited-glow { 0% { filter: none; } 32% { filter: brightness(1.75) drop-shadow(0 0 12px rgba(255,207,104,.9)); } 56% { filter: brightness(1.2) drop-shadow(0 0 38px rgba(239,141,157,.7)); } 78% { filter: brightness(1.42) drop-shadow(0 0 22px rgba(242,173,104,.65)); } 100% { filter: none; } }
+@keyframes color-burst { 0% { opacity: 0; transform: scale(.25); } 35% { opacity: .95; } 100% { opacity: 0; transform: scale(1.6); } }
 .history-item { background: rgba(255,255,255,.78); border: 1px solid #eee7ea; }
 .history-number { color: var(--violet); background: #f5f1fb; }
 .history-result.win { color: #d27a4a; }
