@@ -1,108 +1,103 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>谷来运转</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#fffaf6">
+  <meta name="description" content="和朋友一起开盲盒、抽惊喜的多人互动网页">
+  <title>一起开盒｜多人盲盒抽选</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="container">
-    <header class="hero">
-      <div>
-        <h1>🍀 谷来运转</h1>
-        <p>今天的谷，会落到谁家？</p>
-      </div>
-      <button id="adminBtn" class="ghost">管理员</button>
+  <div class="page-orb orb-one" aria-hidden="true"></div>
+  <div class="page-orb orb-two" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="topbar">
+      <button class="brand" id="homeButton" type="button" aria-label="返回首页">
+        <span class="brand-mark" aria-hidden="true"><img id="brandLogo" alt=""><b>✦</b></span><span>一起开盒</span>
+      </button>
+      <span class="live-pill"><i aria-hidden="true"></i>多人同步</span>
     </header>
 
-    <section id="loginCard" class="card">
-      <h2>来吃谷</h2>
-      <div class="row">
-        <input id="nameInput" maxlength="30" placeholder="留下你的大名" />
-        <button id="enterBtn">开吃</button>
-      </div>
-      <p class="hint">同一名字会继续累计该名字本轮的抽奖次数。</p>
+    <section id="setupWarning" class="setup-warning hidden" role="alert">
+      <strong>还差一步配置</strong><span>请按照 README.md 接入 Supabase 数据库。</span>
     </section>
 
-    <section id="drawCard" class="card hidden">
-      <div class="status-grid">
-        <div><span>当前用户</span><strong id="userName">-</strong></div>
-        <div><span>剩余卡片</span><strong id="remainingCount">-</strong></div>
-        <div><span>中奖剩余</span><strong id="winnerRemaining">-</strong></div>
-        <div><span>你的次数</span><strong id="myCount">-</strong></div>
+    <section id="landingView" class="landing-view">
+      <div class="intro">
+        <p class="eyebrow">BLIND BOX PARTY</p>
+        <h1>和喜欢的人，<br><em>一起拆份小惊喜。</em></h1>
+        <p class="intro-copy">创建一场盲盒抽选，把链接分享给朋友。谁能开几盒、盒里有哪些款，都由你来设置。</p>
+        <div class="mini-boxes" aria-hidden="true"><div class="mini-box box-a"><span>?</span></div><div class="mini-box box-b"><span>限定</span></div><div class="mini-box box-c"><span>?</span></div></div>
       </div>
 
-      <div class="draw-area">
-        <div class="gacha-stage">
-          <div id="gachaCard" class="gacha-card">
-            <div class="gacha-face gacha-back">
-              <span class="sparkle">✦</span>
-              <div class="bag-icon">谷</div>
-              <strong>今日谷运</strong>
-              <small>点下面抽一个</small>
-            </div>
-            <div class="gacha-face gacha-front">
-              <div id="cardEmoji" class="card-emoji">✨</div>
-              <strong id="cardTitle">欧气降临</strong>
-              <span id="cardNumber">CARD #--</span>
-            </div>
-          </div>
+      <div class="entry-card">
+        <div class="tabs" role="tablist" aria-label="选择操作">
+          <button class="tab active" id="joinTab" type="button" role="tab" aria-selected="true" aria-controls="joinPanel">加入抽选</button>
+          <button class="tab" id="createTab" type="button" role="tab" aria-selected="false" aria-controls="createPanel">创建活动</button>
         </div>
-        <button id="drawBtn" class="draw-button">✨ 抽一个！</button>
-        <div id="resultBox" class="result-box compact">看看今天谷运如何</div>
+
+        <form id="joinPanel" class="form-panel" autocomplete="off">
+          <label for="roomCode">活动码</label><input id="roomCode" maxlength="6" placeholder="例如 A1B2C3" required>
+          <label for="participantName">你的名字</label><input id="participantName" maxlength="20" placeholder="输入设置时使用的名字" required>
+          <button class="primary-button" type="submit"><span>进入活动</span><b aria-hidden="true">→</b></button>
+        </form>
+
+        <form id="createPanel" class="form-panel hidden" autocomplete="off">
+          <label for="eventTitle">活动名称</label><input id="eventTitle" maxlength="30" value="周末盲盒分享会" required>
+          <fieldset class="choice-group">
+            <legend>抽选方式</legend>
+            <div class="mode-cards">
+              <label class="mode-card selected"><input type="radio" name="lotteryMode" value="blind" checked><span class="mode-icon">▦</span><strong>多款盲盒</strong><small>每盒都会开出一个款式</small></label>
+              <label class="mode-card"><input type="radio" name="lotteryMode" value="group"><span class="mode-icon">✦</span><strong>全群抽选</strong><small>设置一个礼物，大家一起抽</small></label>
+              <label class="mode-card"><input type="radio" name="lotteryMode" value="raffle"><span class="mode-icon">◎</span><strong>名单开奖</strong><small>人数不限，最后统一开奖</small></label>
+            </div>
+          </fieldset>
+
+          <div id="blindPrizeBlock" class="config-block">
+            <div class="block-title"><span>盲盒款式与数量</span><button id="addPrizeButton" type="button">＋ 添加款式</button></div>
+            <div id="prizeEditor" class="row-editor"></div><p id="boxTotalNote" class="field-note">共 0 盒</p>
+          </div>
+          <div id="groupPrizeBlock" class="config-block hidden">
+            <label for="groupPrizeName">礼物名称</label><input id="groupPrizeName" maxlength="30" value="限定小礼物">
+            <div class="form-grid"><div><label for="groupPrizeQuantity">礼物份数</label><input id="groupPrizeQuantity" type="number" min="1" max="60" value="1"></div><div><label for="groupTotalCards">总抽选签数</label><input id="groupTotalCards" type="number" min="2" max="60" value="12"></div></div>
+          </div>
+
+          <fieldset id="limitChoiceGroup" class="choice-group">
+            <legend>参与次数</legend>
+            <div class="segmented"><label><input type="radio" name="limitMode" value="everyone" checked><span>所有人统一</span></label><label><input type="radio" name="limitMode" value="named"><span>逐个指定</span></label></div>
+          </fieldset>
+          <div id="everyoneLimitBlock" class="config-block compact"><label for="defaultMaxDraws">每个名字可以抽几次</label><input id="defaultMaxDraws" type="number" min="1" max="20" value="1"></div>
+          <div id="namedLimitBlock" class="config-block hidden">
+            <div class="block-title"><span>参与成员与次数</span><button id="addPersonButton" type="button">＋ 添加成员</button></div>
+            <div id="personEditor" class="row-editor"></div><p class="field-note">只有名单中的名字可以参与，输入时需与这里一致。</p>
+          </div>
+          <button class="primary-button" type="submit"><span>创建并生成链接</span><b aria-hidden="true">✦</b></button>
+        </form>
       </div>
     </section>
 
-    <section class="card">
-      <div class="section-title">
-        <h2>吃谷记录</h2>
-        <button id="refreshBtn" class="ghost small">刷新</button>
+    <section id="roomView" class="room-view hidden">
+      <div class="room-heading">
+        <div><p id="roomModeLabel" class="eyebrow">BLIND BOX</p><h2 id="roomTitle">盲盒抽选</h2><p id="playerGreeting" class="room-subtitle"></p></div>
+        <div class="share-box"><span>活动码</span><strong id="roomCodeDisplay">------</strong><button id="copyLinkButton" type="button">复制邀请链接</button></div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>谷友</th>
-              <th>第几抽</th>
-              <th>卡片</th>
-              <th>谷运</th>
-            </tr>
-          </thead>
-          <tbody id="recordsBody"></tbody>
-        </table>
+      <div id="prizeLegend" class="prize-legend"></div>
+      <div class="stats" aria-label="活动状态">
+        <div class="stat"><span id="remainingLabel">剩余盲盒</span><strong id="remainingStat">0</strong></div>
+        <div class="stat"><span id="prizeStatLabel">剩余款式</span><strong id="winnerStat">0</strong></div>
+        <div class="stat"><span>你的次数</span><strong id="limitStat">0</strong></div>
+        <div class="stat"><span>你已抽取</span><strong id="mineStat">0</strong></div>
       </div>
+      <div id="roomNotice" class="room-notice" role="status">选一个还没有打开的盲盒吧。</div>
+      <div id="cardGrid" class="card-grid" aria-live="polite"></div>
+      <div class="history-section"><div class="section-title"><h3>开盒记录</h3><span id="drawCount">0 条</span></div><div id="historyList" class="history-list"></div></div>
+      <div id="adminPanel" class="admin-panel hidden"><div><strong>活动管理</strong><span>只有创建活动的设备能看到这里。</span></div><div class="admin-actions"><button id="drawWinnersButton" class="primary-small hidden" type="button">结束报名并开奖</button><button id="toggleRoomButton" class="secondary-button" type="button">暂停抽选</button><button id="resetRoomButton" class="danger-button" type="button">清空记录</button></div></div>
     </section>
   </main>
 
-  <dialog id="adminDialog">
-    <form method="dialog" class="dialog-card">
-      <h2>管理员设置</h2>
-      <label>管理员密码
-        <input id="adminPassword" type="password" placeholder="输入密码" />
-      </label>
-      <label>房间名称
-        <input id="roomName" value="Default Room" maxlength="60" />
-      </label>
-      <label>总卡片数
-        <input id="totalCards" type="number" min="1" value="50" />
-      </label>
-      <label>中奖数量
-        <input id="winningCards" type="number" min="0" value="5" />
-      </label>
-      <label>每人最多抽几次
-        <input id="maxDraws" type="number" min="1" value="3" />
-      </label>
-      <div class="dialog-actions">
-        <button value="cancel" class="ghost">取消</button>
-        <button id="createRoundBtn" value="default">创建 / 重置本轮</button>
-      </div>
-      <p class="hint danger">创建新一轮会清空当前轮次的抽奖记录。</p>
-    </form>
-  </dialog>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js"></script>
+  <div id="revealModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="revealTitle"><div class="modal-backdrop"></div><div class="reveal-box"><div id="revealIcon" class="reveal-icon">✦</div><p id="revealKicker">第 1 个盲盒</p><h2 id="revealTitle">打开成功</h2><p id="revealText"></p><button id="closeRevealButton" class="primary-button" type="button"><span>收下结果</span><b aria-hidden="true">→</b></button></div></div>
+  <div id="celebrationLayer" class="celebration-layer" aria-hidden="true"></div><div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="config.js"></script><script src="app.js"></script>
 </body>
 </html>

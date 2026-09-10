@@ -1,246 +1,417 @@
-// ============================
-// 1) 把下面两个值替换成你的 Supabase 项目参数
-// Supabase -> Project Settings -> API
-// ============================
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+(() => {
+  "use strict";
 
-// 前端只保存“进入管理员面板”的口令。
-// 真正生产使用建议改为 Supabase Auth；小范围朋友使用可先用这一版。
-const ADMIN_PASSWORD = "CHANGE_ME";
+  const config = window.LOTTERY_CONFIG || {};
+  const configured = /^https:\/\/.+\.supabase\.co$/i.test(config.supabaseUrl || "")
+    && config.supabaseAnonKey
+    && !config.supabaseAnonKey.startsWith("YOUR_");
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const state = {
+    code: "",
+    name: "",
+    ownerToken: "",
+    room: null,
+    draws: [],
+    pollTimer: null,
+    busyCard: null,
+    lastDrawCount: 0,
+    hasRenderedRoom: false
+  };
 
-const els = {
-  loginCard: document.querySelector("#loginCard"),
-  drawCard: document.querySelector("#drawCard"),
-  nameInput: document.querySelector("#nameInput"),
-  enterBtn: document.querySelector("#enterBtn"),
-  userName: document.querySelector("#userName"),
-  remainingCount: document.querySelector("#remainingCount"),
-  winnerRemaining: document.querySelector("#winnerRemaining"),
-  myCount: document.querySelector("#myCount"),
-  drawBtn: document.querySelector("#drawBtn"),
-  resultBox: document.querySelector("#resultBox"),
-  recordsBody: document.querySelector("#recordsBody"),
-  refreshBtn: document.querySelector("#refreshBtn"),
-  adminBtn: document.querySelector("#adminBtn"),
-  adminDialog: document.querySelector("#adminDialog"),
-  adminPassword: document.querySelector("#adminPassword"),
-  roomName: document.querySelector("#roomName"),
-  totalCards: document.querySelector("#totalCards"),
-  winningCards: document.querySelector("#winningCards"),
-  maxDraws: document.querySelector("#maxDraws"),
-  createRoundBtn: document.querySelector("#createRoundBtn"),
-  gachaCard: document.querySelector("#gachaCard"),
-  cardEmoji: document.querySelector("#cardEmoji"),
-  cardTitle: document.querySelector("#cardTitle"),
-  cardNumber: document.querySelector("#cardNumber"),
-  gachaFront: document.querySelector(".gacha-front"),
-};
+  const $ = (id) => document.getElementById(id);
+  const elements = {
+    landingView: $("landingView"), roomView: $("roomView"), setupWarning: $("setupWarning"),
+    joinTab: $("joinTab"), createTab: $("createTab"), joinPanel: $("joinPanel"), createPanel: $("createPanel"),
+    roomCode: $("roomCode"), participantName: $("participantName"), eventTitle: $("eventTitle"),
+    totalCards: $("totalCards"), winnerCount: $("winnerCount"), maxDraws: $("maxDraws"),
+    roomTitle: $("roomTitle"), playerGreeting: $("playerGreeting"), roomCodeDisplay: $("roomCodeDisplay"),
+    remainingStat: $("remainingStat"), winnerStat: $("winnerStat"), limitStat: $("limitStat"), mineStat: $("mineStat"),
+    roomNotice: $("roomNotice"), cardGrid: $("cardGrid"), historyList: $("historyList"), drawCount: $("drawCount"),
+    adminPanel: $("adminPanel"), toggleRoomButton: $("toggleRoomButton"), resetRoomButton: $("resetRoomButton"),
+    revealModal: $("revealModal"), revealIcon: $("revealIcon"), revealKicker: $("revealKicker"),
+    revealTitle: $("revealTitle"), revealText: $("revealText"), closeRevealButton: $("closeRevealButton"),
+    copyLinkButton: $("copyLinkButton"), homeButton: $("homeButton"), toast: $("toast"),
+    celebrationLayer: $("celebrationLayer")
+  };
 
-let currentName = localStorage.getItem("draw_name") || "";
-let round = null;
+  if (!configured) elements.setupWarning.classList.remove("hidden");
 
-function assertConfigured() {
-  if (SUPABASE_URL.startsWith("YOUR_") || SUPABASE_ANON_KEY.startsWith("YOUR_")) {
-    alert("请先在 app.js 顶部填写 SUPABASE_URL 和 SUPABASE_ANON_KEY。");
+  const queryCode = new URLSearchParams(location.search).get("room");
+  if (queryCode) {
+    elements.roomCode.value = sanitizeCode(queryCode);
+    elements.participantName.focus();
+  }
+
+  function sanitizeCode(value) {
+    return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  }
+
+  function normalizeName(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").slice(0, 20);
+  }
+
+  function showToast(message) {
+    elements.toast.textContent = message;
+    elements.toast.classList.add("show");
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => elements.toast.classList.remove("show"), 2200);
+  }
+
+  function ensureConfigured() {
+    if (configured) return true;
+    elements.setupWarning.scrollIntoView({ behavior: "smooth", block: "center" });
+    showToast("请先按照 README 完成数据库配置");
     return false;
   }
-  return true;
-}
 
-function formatTime(v) {
-  return new Date(v).toLocaleString("zh-CN", { hour12: false });
-}
+  async function rpc(name, params = {}) {
+    if (!ensureConfigured()) throw new Error("网站尚未连接数据库");
+    const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: config.supabaseAnonKey,
+        Authorization: `Bearer ${config.supabaseAnonKey}`
+      },
+      body: JSON.stringify(params)
+    });
 
-async function loadRound() {
-  if (!assertConfigured()) return;
-  const { data, error } = await sb
-    .from("rounds")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    return;
+    let payload = null;
+    try { payload = await response.json(); } catch { /* empty response */ }
+    if (!response.ok) {
+      const message = payload?.message || payload?.hint || "网络繁忙，请稍后再试";
+      throw new Error(translateError(message));
+    }
+    return payload;
   }
 
-  round = data;
-  if (!round) {
-    els.remainingCount.textContent = "0";
-    els.winnerRemaining.textContent = "0";
-    els.drawBtn.disabled = true;
-    els.resultBox.textContent = "管理员尚未创建抽奖";
-    await loadRecords();
-    return;
+  function translateError(message) {
+    const translations = [
+      [/room not found/i, "没找到这个谷局，检查一下谷局码"],
+      [/room is closed/i, "这局暂时封盘了"],
+      [/room is full/i, "本局所有牌都开完了"],
+      [/card already drawn/i, "这张牌刚被谷友抢先开了，换一张吧"],
+      [/draw limit reached/i, "这个圈名已经开满手数了"],
+      [/invalid owner token/i, "主理人身份已失效"],
+      [/invalid participant name/i, "请输入 1—20 个字的圈名"],
+      [/invalid room settings/i, "谷局设置不对，再检查一下数字"],
+      [/Failed to fetch/i, "连接失败，请检查网络和数据库配置"]
+    ];
+    const found = translations.find(([pattern]) => pattern.test(message));
+    return found ? found[1] : message;
   }
 
-  const { count: drawnCount } = await sb
-    .from("draws")
-    .select("*", { count: "exact", head: true })
-    .eq("round_id", round.id);
+  function setTab(tab) {
+    const joining = tab === "join";
+    elements.joinTab.classList.toggle("active", joining);
+    elements.createTab.classList.toggle("active", !joining);
+    elements.joinTab.setAttribute("aria-selected", String(joining));
+    elements.createTab.setAttribute("aria-selected", String(!joining));
+    elements.joinPanel.classList.toggle("hidden", !joining);
+    elements.createPanel.classList.toggle("hidden", joining);
+  }
 
-  const { count: wonCount } = await sb
-    .from("draws")
-    .select("*", { count: "exact", head: true })
-    .eq("round_id", round.id)
-    .eq("is_winner", true);
+  async function loadRoom(silent = false) {
+    if (!state.code || document.hidden || state.busyCard !== null) return;
+    try {
+      const data = await rpc("get_lottery_room", { p_room_code: state.code });
+      const previousCount = state.draws.length;
+      state.room = data.room;
+      state.draws = Array.isArray(data.draws) ? data.draws : [];
+      renderRoom();
+      if (!silent && state.draws.length > previousCount) showToast("开谷战报更新了");
+    } catch (error) {
+      if (!silent) showToast(error.message);
+    }
+  }
 
-  const { count: mine } = currentName
-    ? await sb
-        .from("draws")
-        .select("*", { count: "exact", head: true })
-        .eq("round_id", round.id)
-        .eq("participant_name", currentName)
-    : { count: 0 };
+  function enterRoom(code, name, ownerToken = "") {
+    state.code = sanitizeCode(code);
+    state.name = normalizeName(name);
+    state.ownerToken = ownerToken || localStorage.getItem(`lottery-owner-${state.code}`) || "";
+    state.hasRenderedRoom = false;
+    elements.landingView.classList.add("hidden");
+    elements.roomView.classList.remove("hidden");
+    history.replaceState(null, "", `${location.pathname}?room=${state.code}`);
+    clearInterval(state.pollTimer);
+    state.pollTimer = setInterval(() => loadRoom(true), 2500);
+  }
 
-  els.remainingCount.textContent = Math.max(0, round.total_cards - (drawnCount || 0));
-  els.winnerRemaining.textContent = Math.max(0, round.winning_cards - (wonCount || 0));
-  els.myCount.textContent = `${mine || 0} / ${round.max_draws_per_person}`;
-  els.drawBtn.disabled =
-    !currentName ||
-    (mine || 0) >= round.max_draws_per_person ||
-    (drawnCount || 0) >= round.total_cards;
+  function leaveRoom() {
+    clearInterval(state.pollTimer);
+    state.code = "";
+    state.name = "";
+    state.room = null;
+    state.draws = [];
+    state.hasRenderedRoom = false;
+    elements.roomView.classList.add("hidden");
+    elements.landingView.classList.remove("hidden");
+    history.replaceState(null, "", location.pathname);
+  }
 
-  await loadRecords();
-}
+  function renderRoom() {
+    if (!state.room) return;
+    const room = state.room;
+    const draws = state.draws;
+    const drawsByCard = new Map(draws.map((draw) => [Number(draw.card_number), draw]));
+    const mine = draws.filter((draw) => normalizeName(draw.participant_name).toLocaleLowerCase() === state.name.toLocaleLowerCase());
+    const wins = draws.filter((draw) => draw.is_winner).length;
+    const remaining = room.total_cards - draws.length;
+    const isOwner = Boolean(state.ownerToken);
 
-async function loadRecords() {
-  if (!assertConfigured()) return;
-  let query = sb
-    .from("draws")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
+    elements.roomTitle.textContent = room.title;
+    elements.roomCodeDisplay.textContent = state.code;
+    elements.playerGreeting.textContent = state.name
+      ? `${state.name}，挑一张顺眼的牌，拼拼欧气。`
+      : "主理人视图：把邀请链接甩给谷友就能开局。";
+    elements.remainingStat.textContent = remaining;
+    elements.winnerStat.textContent = Math.max(0, room.winner_count - wins);
+    elements.limitStat.textContent = room.max_draws_per_person;
+    elements.mineStat.textContent = state.name ? mine.length : "—";
+    elements.drawCount.textContent = `${draws.length} 条`;
+    elements.adminPanel.classList.toggle("hidden", !isOwner);
+    elements.toggleRoomButton.textContent = room.is_open ? "暂时封盘" : "继续开谷";
 
-  if (round?.id) query = query.eq("round_id", round.id);
+    if (!room.is_open) elements.roomNotice.textContent = "本局暂时封盘，等主理人重新开谷。";
+    else if (remaining <= 0) elements.roomNotice.textContent = "全盒开完，本局战报正式锁定。";
+    else if (!state.name) elements.roomNotice.textContent = "主理人控场中，战报会自动刷新。";
+    else if (mine.length >= room.max_draws_per_person) elements.roomNotice.textContent = "你的手数开满啦，来围观谷友们的欧气。";
+    else elements.roomNotice.textContent = `还剩 ${room.max_draws_per_person - mine.length} 手，挑一张未开封的牌。`;
 
-  const { data, error } = await query;
-  if (error) return console.error(error);
+    const fragment = document.createDocumentFragment();
+    for (let number = 1; number <= room.total_cards; number += 1) {
+      const draw = drawsByCard.get(number);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = `lottery-card${draw ? " flipped" : ""}${state.hasRenderedRoom ? "" : " dealing"}`;
+      card.style.setProperty("--card-index", String(Math.min(number - 1, 16)));
+      card.dataset.card = number;
+      card.disabled = Boolean(draw) || !room.is_open || !state.name || mine.length >= room.max_draws_per_person || state.busyCard !== null;
+      card.setAttribute("aria-label", draw ? `第 ${number} 张牌，${draw.participant_name} 已翻开` : `翻开第 ${number} 张牌`);
 
-  els.recordsBody.innerHTML = "";
-  (data || []).forEach(r => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${formatTime(r.created_at)}</td>
-      <td>${escapeHtml(r.participant_name)}</td>
-      <td>${r.draw_number}</td>
-      <td>#${String(r.card_number).padStart(2,"0")}</td>
-      <td>${r.is_winner ? "✨ 欧气降临" : "下次一定"}</td>`;
-    els.recordsBody.appendChild(tr);
+      const inner = document.createElement("span");
+      inner.className = "card-inner";
+      const front = document.createElement("span");
+      front.className = "card-face card-front";
+      const question = document.createElement("strong");
+      question.textContent = "?";
+      const label = document.createElement("span");
+      label.textContent = `NO. ${String(number).padStart(2, "0")}`;
+      front.append(question, label);
+
+      const back = document.createElement("span");
+      back.className = `card-face card-back${draw?.is_winner ? " winner" : ""}`;
+      const icon = document.createElement("span");
+      icon.className = "result-icon";
+      icon.textContent = draw?.is_winner ? "✦" : "○";
+      const person = document.createElement("strong");
+      person.textContent = draw?.participant_name || "等待翻开";
+      const result = document.createElement("span");
+      result.textContent = draw ? (draw.is_winner ? "一发入魂" : "这发陪跑") : "";
+      back.append(icon, person, result);
+      inner.append(front, back);
+      card.append(inner);
+      if (!draw) card.addEventListener("click", () => drawCard(number));
+      fragment.append(card);
+    }
+    elements.cardGrid.replaceChildren(fragment);
+    state.hasRenderedRoom = true;
+
+    if (!draws.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "还没人开牌，第一份欧气正在等谷友认领。";
+      elements.historyList.replaceChildren(empty);
+    } else {
+      const historyFragment = document.createDocumentFragment();
+      [...draws].reverse().forEach((draw) => {
+        const row = document.createElement("div");
+        row.className = "history-item";
+        const number = document.createElement("span");
+        number.className = "history-number";
+        number.textContent = `#${draw.card_number}`;
+        const name = document.createElement("span");
+        name.className = "history-name";
+        name.textContent = draw.participant_name;
+        const result = document.createElement("span");
+        result.className = `history-result${draw.is_winner ? " win" : ""}`;
+        result.textContent = draw.is_winner ? "一发入魂 ✦" : "这发陪跑";
+        row.append(number, name, result);
+        historyFragment.append(row);
+      });
+      elements.historyList.replaceChildren(historyFragment);
+    }
+  }
+
+  async function drawCard(cardNumber) {
+    if (state.busyCard !== null) return;
+    state.busyCard = cardNumber;
+    renderRoom();
+    try {
+      const result = await rpc("draw_lottery_card", {
+        p_room_code: state.code,
+        p_participant_name: state.name,
+        p_card_number: cardNumber
+      });
+      await animateSelectedCard(cardNumber, result);
+      state.busyCard = null;
+      await loadRoom(true);
+      showReveal(result);
+    } catch (error) {
+      showToast(error.message);
+      state.busyCard = null;
+      await loadRoom(true);
+    } finally {
+      state.busyCard = null;
+      renderRoom();
+    }
+  }
+
+  function animateSelectedCard(cardNumber, result) {
+    return new Promise((resolve) => {
+      const card = elements.cardGrid.querySelector(`[data-card="${cardNumber}"]`);
+      if (!card) return resolve();
+      const back = card.querySelector(".card-back");
+      const icon = back.querySelector(".result-icon");
+      const person = back.querySelector("strong");
+      const resultText = back.querySelector("span:last-child");
+      back.classList.toggle("winner", Boolean(result.is_winner));
+      icon.textContent = result.is_winner ? "✦" : "○";
+      person.textContent = state.name;
+      resultText.textContent = result.is_winner ? "一发入魂" : "这发陪跑";
+      requestAnimationFrame(() => {
+        card.classList.add("flipped", "just-flipped");
+        if (navigator.vibrate) navigator.vibrate(result.is_winner ? [35, 35, 70] : 25);
+      });
+      setTimeout(resolve, 850);
+    });
+  }
+
+  function launchCelebration() {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const colors = ["#ffd85a", "#9d7cff", "#ff756e", "#65d49b", "#f7f4ff"];
+    const fragment = document.createDocumentFragment();
+    for (let index = 0; index < 42; index += 1) {
+      const piece = document.createElement("i");
+      piece.className = "confetti";
+      piece.style.setProperty("--x", `${Math.random() * 100}%`);
+      piece.style.setProperty("--w", `${5 + Math.random() * 7}px`);
+      piece.style.setProperty("--drift", `${-90 + Math.random() * 180}px`);
+      piece.style.setProperty("--spin", `${360 + Math.random() * 720}deg`);
+      piece.style.setProperty("--duration", `${1.7 + Math.random() * 1.2}s`);
+      piece.style.setProperty("--delay", `${Math.random() * .35}s`);
+      piece.style.setProperty("--color", colors[index % colors.length]);
+      fragment.append(piece);
+    }
+    elements.celebrationLayer.replaceChildren(fragment);
+    setTimeout(() => elements.celebrationLayer.replaceChildren(), 3400);
+  }
+
+  function showReveal(result) {
+    const win = Boolean(result.is_winner);
+    elements.revealKicker.textContent = `第 ${result.card_number} 张牌`;
+    elements.revealTitle.textContent = win ? "一发入魂，欧皇降临！" : "这发陪跑";
+    elements.revealText.textContent = win ? "成功回血！这份战绩已经锁在牌面上。" : "欧气还在路上，先围观一下谷友们的手气。";
+    elements.revealIcon.textContent = win ? "✦" : "○";
+    elements.revealModal.querySelector(".reveal-box").classList.toggle("win", win);
+    elements.revealModal.classList.remove("hidden");
+    if (win) launchCelebration();
+    elements.closeRevealButton.focus();
+  }
+
+  elements.joinTab.addEventListener("click", () => setTab("join"));
+  elements.createTab.addEventListener("click", () => setTab("create"));
+  elements.roomCode.addEventListener("input", (event) => { event.target.value = sanitizeCode(event.target.value); });
+
+  elements.totalCards.addEventListener("input", () => {
+    elements.winnerCount.max = elements.totalCards.value || 60;
+    elements.maxDraws.max = elements.totalCards.value || 60;
   });
-}
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-  }[c]));
-}
-
-async function enter() {
-  const name = els.nameInput.value.trim();
-  if (!name) return alert("请输入名字");
-  currentName = name;
-  localStorage.setItem("draw_name", name);
-  els.userName.textContent = name;
-  els.loginCard.classList.add("hidden");
-  els.drawCard.classList.remove("hidden");
-  await loadRound();
-}
-
-async function draw() {
-  if (!round || !currentName) return;
-  els.drawBtn.disabled = true;
-  els.gachaCard.classList.remove("flipped");
-  els.gachaCard.classList.add("shuffling");
-  els.resultBox.className = "result-box compact";
-  els.resultBox.textContent = "谷子正在选择它的主人…";
-  await new Promise(resolve => setTimeout(resolve, 700));
-  els.gachaCard.classList.remove("shuffling");
-
-  const { data, error } = await sb.rpc("draw_card", {
-    p_round_id: round.id,
-    p_participant_name: currentName
+  elements.joinPanel.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!ensureConfigured()) return;
+    const code = sanitizeCode(elements.roomCode.value);
+    const name = normalizeName(elements.participantName.value);
+    if (code.length !== 6 || !name) return showToast("请填 6 位谷局码和你的圈名");
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+      const data = await rpc("get_lottery_room", { p_room_code: code });
+      enterRoom(code, name);
+      state.room = data.room;
+      state.draws = data.draws || [];
+      localStorage.setItem(`lottery-name-${code}`, name);
+      renderRoom();
+    } catch (error) { showToast(error.message); }
+    finally { button.disabled = false; }
   });
 
-  if (error) {
-    console.error(error);
-    els.resultBox.textContent = error.message || "抽取失败";
-    await loadRound();
-    return;
-  }
-
-  const r = Array.isArray(data) ? data[0] : data;
-  if (!r) {
-    els.resultBox.textContent = "没有可抽取的卡片";
-  } else {
-    const num = String(r.card_number).padStart(2,"0");
-    els.cardEmoji.textContent = r.is_winner ? "✨" : "🍪";
-    els.cardTitle.textContent = r.is_winner ? "欧气降临！" : "下次一定";
-    els.cardNumber.textContent = `CARD #${num}`;
-    els.gachaFront.classList.toggle("lose", !r.is_winner);
-    els.resultBox.classList.add(r.is_winner ? "win" : "lose");
-    els.resultBox.textContent = r.is_winner ? "这口谷被你吃到了 ✨" : "这次擦肩而过，下次一定";
-    requestAnimationFrame(() => els.gachaCard.classList.add("flipped"));
-  }
-
-  await loadRound();
-}
-
-async function createRound(e) {
-  e.preventDefault();
-  if (!assertConfigured()) return;
-  if (els.adminPassword.value !== ADMIN_PASSWORD) return alert("管理员密码错误");
-
-  const total = Number(els.totalCards.value);
-  const winners = Number(els.winningCards.value);
-  const maxDraws = Number(els.maxDraws.value);
-
-  if (total < 1 || winners < 0 || winners > total || maxDraws < 1) {
-    return alert("参数不正确：中奖数不能大于总卡数。");
-  }
-
-  if (!confirm("这会结束当前轮次并创建一轮新的抽奖，确定继续？")) return;
-
-  const { error } = await sb.rpc("create_round", {
-    p_name: els.roomName.value.trim() || "Default Room",
-    p_total_cards: total,
-    p_winning_cards: winners,
-    p_max_draws_per_person: maxDraws
+  elements.createPanel.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!ensureConfigured()) return;
+    const title = elements.eventTitle.value.trim();
+    const total = Number(elements.totalCards.value);
+    const winners = Number(elements.winnerCount.value);
+    const maxDraws = Number(elements.maxDraws.value);
+    if (!title || total < 2 || total > 60 || winners < 1 || winners > total || maxDraws < 1 || maxDraws > total) {
+      return showToast("再检查一下谷局名称和手数设置");
+    }
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+      const data = await rpc("create_lottery_room", {
+        p_title: title,
+        p_total_cards: total,
+        p_winner_count: winners,
+        p_max_draws: maxDraws
+      });
+      localStorage.setItem(`lottery-owner-${data.room_code}`, data.owner_token);
+      enterRoom(data.room_code, "", data.owner_token);
+      await loadRoom(true);
+      showToast("开局成功，复制链接喊谷友吧");
+    } catch (error) { showToast(error.message); }
+    finally { button.disabled = false; }
   });
 
-  if (error) {
-    console.error(error);
-    return alert(error.message || "创建失败");
+  elements.copyLinkButton.addEventListener("click", async () => {
+    const url = `${location.origin}${location.pathname}?room=${state.code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("喊人链接已复制");
+    } catch {
+      window.prompt("复制这个链接喊谷友：", url);
+    }
+  });
+
+  elements.toggleRoomButton.addEventListener("click", async () => {
+    try {
+      await rpc("set_lottery_room_open", {
+        p_room_code: state.code,
+        p_owner_token: state.ownerToken,
+        p_is_open: !state.room.is_open
+      });
+      await loadRoom(true);
+      showToast(state.room.is_open ? "重新开谷啦" : "本局已封盘");
+    } catch (error) { showToast(error.message); }
+  });
+
+  elements.resetRoomButton.addEventListener("click", async () => {
+    if (!confirm("确定清空全部开谷战报吗？清空后不能恢复。")) return;
+    try {
+      await rpc("reset_lottery_room", { p_room_code: state.code, p_owner_token: state.ownerToken });
+      await loadRoom(true);
+      showToast("战报清空，可以重新开一轮啦");
+    } catch (error) { showToast(error.message); }
+  });
+
+  elements.closeRevealButton.addEventListener("click", () => elements.revealModal.classList.add("hidden"));
+  elements.revealModal.querySelector(".modal-backdrop").addEventListener("click", () => elements.revealModal.classList.add("hidden"));
+  elements.homeButton.addEventListener("click", leaveRoom);
+  window.addEventListener("focus", () => loadRoom(true));
+
+  if (queryCode) {
+    const rememberedName = localStorage.getItem(`lottery-name-${sanitizeCode(queryCode)}`);
+    if (rememberedName) elements.participantName.value = rememberedName;
   }
-
-  els.adminDialog.close();
-  els.resultBox.textContent = "新一轮开谷啦，可以开始抽了！";
-  await loadRound();
-}
-
-els.enterBtn.addEventListener("click", enter);
-els.nameInput.addEventListener("keydown", e => e.key === "Enter" && enter());
-els.drawBtn.addEventListener("click", draw);
-els.refreshBtn.addEventListener("click", loadRound);
-els.adminBtn.addEventListener("click", () => els.adminDialog.showModal());
-els.createRoundBtn.addEventListener("click", createRound);
-
-if (currentName) {
-  els.nameInput.value = currentName;
-  enter();
-} else {
-  loadRound();
-}
-
-// 多人实时刷新
-if (!SUPABASE_URL.startsWith("YOUR_")) {
-  sb.channel("draw-live")
-    .on("postgres_changes", { event: "*", schema: "public", table: "draws" }, loadRound)
-    .on("postgres_changes", { event: "*", schema: "public", table: "rounds" }, loadRound)
-    .subscribe();
-}
+})();
