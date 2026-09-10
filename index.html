@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#fffaf6">
-  <meta name="description" content="和朋友一起开盲盒、抽惊喜的多人互动网页">
-  <title>一起开盒｜多人盲盒抽选</title>
+  <meta name="description" content="东映圆谷又99了群友专用抽选页面">
+  <title>今天谁吃谷｜东映圆谷又99了</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,7 +14,7 @@
   <main class="shell">
     <header class="topbar">
       <button class="brand" id="homeButton" type="button" aria-label="返回首页">
-        <span class="brand-mark" aria-hidden="true"><img id="brandLogo" alt=""><b>✦</b></span><span>一起开盒</span>
+        <span class="brand-mark" aria-hidden="true"><img id="brandLogo" alt=""><b>✦</b></span><span>今天谁吃谷</span>
       </button>
       <span class="live-pill"><i aria-hidden="true"></i>多人同步</span>
     </header>
@@ -25,16 +25,16 @@
 
     <section id="landingView" class="landing-view">
       <div class="intro">
-        <p class="eyebrow">BLIND BOX PARTY</p>
-        <h1>和喜欢的人，<br><em>一起拆份小惊喜。</em></h1>
-        <p class="intro-copy">创建一场盲盒抽选，把链接分享给朋友。谁能开几盒、盒里有哪些款，都由你来设置。</p>
+        <p class="eyebrow">东映圆谷又99了 · 群友专用</p>
+        <h1>今天，<br><em>谁来吃谷？</em></h1>
+        <p class="intro-copy">群内抽谷、盲盒分配和统一开奖都在这里。输入群里使用的名字，看看这次会抽到哪一款。</p>
         <div class="mini-boxes" aria-hidden="true"><div class="mini-box box-a"><span>?</span></div><div class="mini-box box-b"><span>限定</span></div><div class="mini-box box-c"><span>?</span></div></div>
       </div>
 
       <div class="entry-card">
-        <div class="tabs" role="tablist" aria-label="选择操作">
+        <div id="entryTabs" class="tabs single" role="tablist" aria-label="选择操作">
           <button class="tab active" id="joinTab" type="button" role="tab" aria-selected="true" aria-controls="joinPanel">加入抽选</button>
-          <button class="tab" id="createTab" type="button" role="tab" aria-selected="false" aria-controls="createPanel">创建活动</button>
+          <button class="tab hidden" id="createTab" type="button" role="tab" aria-selected="false" aria-controls="createPanel">活动管理</button>
         </div>
 
         <form id="joinPanel" class="form-panel" autocomplete="off">
@@ -43,8 +43,20 @@
           <button class="primary-button" type="submit"><span>进入活动</span><b aria-hidden="true">→</b></button>
         </form>
 
+        <form id="adminLoginPanel" class="form-panel hidden" autocomplete="off">
+          <div class="admin-login-mark">管理入口</div>
+          <label for="adminPassword">管理员密码</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="输入管理密码" required>
+          <p class="field-note">验证通过后才能创建群抽活动，密码不会保存在网页代码中。</p>
+          <button class="primary-button" type="submit"><span>进入活动管理</span><b aria-hidden="true">→</b></button>
+        </form>
+
         <form id="createPanel" class="form-panel hidden" autocomplete="off">
-          <label for="eventTitle">活动名称</label><input id="eventTitle" maxlength="30" value="周末盲盒分享会" required>
+          <div class="manage-existing">
+            <div><strong>管理已有活动</strong><small>输入活动码查看结果或继续管理</small></div>
+            <div class="manage-code-row"><input id="adminRoomCode" maxlength="6" placeholder="输入 6 位活动码"><button id="openAdminRoomButton" type="button">打开</button></div>
+          </div>
+          <div class="form-divider"><span>或创建新活动</span></div>
+          <label for="eventTitle">活动名称</label><input id="eventTitle" maxlength="30" value="东映圆谷又99了群抽" required>
           <fieldset class="choice-group">
             <legend>抽选方式</legend>
             <div class="mode-cards">
