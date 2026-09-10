@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>谷来运转</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <h1>🍀 谷来运转</h1>
+        <p>今天的谷，会落到谁家？</p>
+      </div>
+      <button id="adminBtn" class="ghost">管理员</button>
+    </header>
+
+    <section id="loginCard" class="card">
+      <h2>来吃谷</h2>
+      <div class="row">
+        <input id="nameInput" maxlength="30" placeholder="留下你的大名" />
+        <button id="enterBtn">开吃</button>
+      </div>
+      <p class="hint">同一名字会继续累计该名字本轮的抽奖次数。</p>
+    </section>
+
+    <section id="drawCard" class="card hidden">
+      <div class="status-grid">
+        <div><span>当前用户</span><strong id="userName">-</strong></div>
+        <div><span>剩余卡片</span><strong id="remainingCount">-</strong></div>
+        <div><span>中奖剩余</span><strong id="winnerRemaining">-</strong></div>
+        <div><span>你的次数</span><strong id="myCount">-</strong></div>
+      </div>
+
+      <div class="draw-area">
+        <div class="gacha-stage">
+          <div id="gachaCard" class="gacha-card">
+            <div class="gacha-face gacha-back">
+              <span class="sparkle">✦</span>
+              <div class="bag-icon">谷</div>
+              <strong>今日谷运</strong>
+              <small>点下面抽一个</small>
+            </div>
+            <div class="gacha-face gacha-front">
+              <div id="cardEmoji" class="card-emoji">✨</div>
+              <strong id="cardTitle">欧气降临</strong>
+              <span id="cardNumber">CARD #--</span>
+            </div>
+          </div>
+        </div>
+        <button id="drawBtn" class="draw-button">✨ 抽一个！</button>
+        <div id="resultBox" class="result-box compact">看看今天谷运如何</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>吃谷记录</h2>
+        <button id="refreshBtn" class="ghost small">刷新</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>谷友</th>
+              <th>第几抽</th>
+              <th>卡片</th>
+              <th>谷运</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="adminDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>管理员设置</h2>
+      <label>管理员密码
+        <input id="adminPassword" type="password" placeholder="输入密码" />
+      </label>
+      <label>房间名称
+        <input id="roomName" value="Default Room" maxlength="60" />
+      </label>
+      <label>总卡片数
+        <input id="totalCards" type="number" min="1" value="50" />
+      </label>
+      <label>中奖数量
+        <input id="winningCards" type="number" min="0" value="5" />
+      </label>
+      <label>每人最多抽几次
+        <input id="maxDraws" type="number" min="1" value="3" />
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">取消</button>
+        <button id="createRoundBtn" value="default">创建 / 重置本轮</button>
+      </div>
+      <p class="hint danger">创建新一轮会清空当前轮次的抽奖记录。</p>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
