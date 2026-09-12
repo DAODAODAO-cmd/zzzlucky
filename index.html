@@ -105,9 +105,30 @@
       <div id="roomNotice" class="room-notice" role="status">选一个还没有打开的盲盒吧。</div>
       <div id="cardGrid" class="card-grid" aria-live="polite"></div>
       <div class="history-section"><div class="section-title"><h3>开盒记录</h3><span id="drawCount">0 条</span></div><div id="historyList" class="history-list"></div></div>
-      <div id="adminPanel" class="admin-panel hidden"><div><strong>活动管理</strong><span>只有创建活动的设备能看到这里。</span></div><div class="admin-actions"><button id="drawWinnersButton" class="primary-small hidden" type="button">结束报名并开奖</button><button id="toggleRoomButton" class="secondary-button" type="button">暂停抽选</button><button id="resetRoomButton" class="danger-button" type="button">清空记录</button></div></div>
+      <div id="adminPanel" class="admin-panel hidden"><div><strong>活动管理</strong><span>管理员可以修改活动设置和查看全部结果。</span></div><div class="admin-actions"><button id="editRoomButton" class="secondary-button" type="button">编辑活动</button><button id="drawWinnersButton" class="primary-small hidden" type="button">结束报名并开奖</button><button id="toggleRoomButton" class="secondary-button" type="button">暂停抽选</button><button id="resetRoomButton" class="danger-button" type="button">清空记录</button></div></div>
     </section>
   </main>
+
+  <div id="editRoomModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="editRoomTitle">
+    <div class="modal-backdrop"></div>
+    <form id="editRoomForm" class="edit-room-box" autocomplete="off">
+      <div class="edit-room-heading"><div><p>ADMIN EDIT</p><h2 id="editRoomTitle">编辑活动</h2></div><button id="cancelEditRoomButton" class="modal-close" type="button" aria-label="关闭">×</button></div>
+      <label for="editEventTitle">活动名称</label><input id="editEventTitle" maxlength="30" required>
+      <div class="config-block">
+        <div class="block-title"><span>奖品设置</span><button id="addEditPrizeButton" type="button">+ 添加奖品</button></div>
+        <div id="editPrizeEditor" class="row-editor"></div>
+      </div>
+      <div id="editTotalCardsBlock" class="config-block compact hidden"><label for="editTotalCards">参与卡牌总数</label><input id="editTotalCards" type="number" min="2" max="60"></div>
+      <div id="editLimitBlock" class="config-block compact"><label for="editDefaultMaxDraws">每个人默认可以抽几次</label><input id="editDefaultMaxDraws" type="number" min="1" max="20"></div>
+      <div id="editParticipantsBlock" class="config-block">
+        <div class="block-title"><span>指定参与者次数（留空就是全群统一次数）</span><button id="addEditPersonButton" type="button">+ 添加群友</button></div>
+        <div id="editPersonEditor" class="row-editor"></div>
+      </div>
+      <p id="editRoomModeNote" class="field-note"></p>
+      <p id="editSafetyNote" class="edit-safety-note"></p>
+      <button class="primary-button" type="submit"><span>保存修改</span><b aria-hidden="true">✓</b></button>
+    </form>
+  </div>
 
   <div id="revealModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="revealTitle"><div class="modal-backdrop"></div><div class="reveal-box"><div id="revealIcon" class="reveal-icon">✦</div><p id="revealKicker">第 1 个盲盒</p><h2 id="revealTitle">打开成功</h2><p id="revealText"></p><button id="closeRevealButton" class="primary-button" type="button"><span>收下结果</span><b aria-hidden="true">→</b></button></div></div>
   <div id="celebrationLayer" class="celebration-layer" aria-hidden="true"></div><div id="toast" class="toast" role="status" aria-live="polite"></div>

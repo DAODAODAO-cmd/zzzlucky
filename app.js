@@ -3,7 +3,7 @@
   const config = window.LOTTERY_CONFIG || {};
   const configured = /^https:\/\/.+\.supabase\.co$/i.test(config.supabaseUrl || "") && config.supabaseAnonKey && !config.supabaseAnonKey.startsWith("YOUR_");
   const isAdminRoute = new URLSearchParams(location.search).get("admin") === "1";
-  const state = { code: "", name: "", ownerToken: "", adminToken: sessionStorage.getItem("lottery-admin-token") || "", room: null, draws: [], entries: [], pollTimer: null, busyCard: null, hasRenderedRoom: false };
+  const state = { code: "", name: "", ownerToken: "", adminToken: sessionStorage.getItem("lottery-admin-token") || "", room: null, draws: [], entries: [], adminSettings: null, pollTimer: null, busyCard: null, hasRenderedRoom: false };
   const $ = (id) => document.getElementById(id);
   const elements = {
     landingView: $("landingView"), roomView: $("roomView"), setupWarning: $("setupWarning"), entryTabs: $("entryTabs"), joinTab: $("joinTab"), createTab: $("createTab"),
@@ -15,7 +15,11 @@
     shareBox: $("shareBox"), roomCodeDisplay: $("roomCodeDisplay"), prizeLegend: $("prizeLegend"), remainingLabel: $("remainingLabel"), prizeStatLabel: $("prizeStatLabel"),
     remainingStat: $("remainingStat"), winnerStat: $("winnerStat"), limitStat: $("limitStat"), mineStat: $("mineStat"), roomNotice: $("roomNotice"),
     cardGrid: $("cardGrid"), historyList: $("historyList"), drawCount: $("drawCount"), adminPanel: $("adminPanel"), toggleRoomButton: $("toggleRoomButton"),
-    resetRoomButton: $("resetRoomButton"), drawWinnersButton: $("drawWinnersButton"), revealModal: $("revealModal"), revealIcon: $("revealIcon"),
+    resetRoomButton: $("resetRoomButton"), drawWinnersButton: $("drawWinnersButton"), editRoomButton: $("editRoomButton"),
+    editRoomModal: $("editRoomModal"), editRoomForm: $("editRoomForm"), cancelEditRoomButton: $("cancelEditRoomButton"), editEventTitle: $("editEventTitle"),
+    editPrizeEditor: $("editPrizeEditor"), addEditPrizeButton: $("addEditPrizeButton"), editTotalCardsBlock: $("editTotalCardsBlock"), editTotalCards: $("editTotalCards"),
+    editLimitBlock: $("editLimitBlock"), editDefaultMaxDraws: $("editDefaultMaxDraws"), editParticipantsBlock: $("editParticipantsBlock"), editPersonEditor: $("editPersonEditor"), addEditPersonButton: $("addEditPersonButton"), editRoomModeNote: $("editRoomModeNote"), editSafetyNote: $("editSafetyNote"),
+    revealModal: $("revealModal"), revealIcon: $("revealIcon"),
     revealKicker: $("revealKicker"), revealTitle: $("revealTitle"), revealText: $("revealText"), closeRevealButton: $("closeRevealButton"),
     copyLinkButton: $("copyLinkButton"), homeButton: $("homeButton"), toast: $("toast"), celebrationLayer: $("celebrationLayer"), brandLogo: $("brandLogo")
   };
@@ -54,8 +58,9 @@
       [/raffle already drawn/i, "本次活动已经开奖"], [/not enough participants/i, "报名人数还不够分配全部奖项"],
       [/invalid owner token/i, "活动管理身份已失效"], [/invalid participant name/i, "请输入正确的名字"],
       [/invalid admin session/i, "管理员登录已过期，请重新输入密码"], [/invalid admin password/i, "管理员密码不正确"],
+      [/room has activity/i, "已经有人参与了。请先清空记录，再修改奖品、数量或参与次数；活动名称仍可直接修改。"],
       [/invalid room settings/i, "活动设置不完整，请检查后重试"], [/duplicate prize/i, "款式或奖项名称不能重复"],
-      [/duplicate participant/i, "参与名单中有重复名字"], [/Could not find the function/i, "请先在 Supabase 中运行新版 supabase.sql"],
+      [/duplicate participant/i, "参与名单中有重复名字"], [/Could not find the function/i, "数据库还没升级：请在 Supabase 中运行 upgrade-editing.sql"],
       [/Failed to fetch/i, "连接失败，请检查网络"]
     ];
     const found = map.find(([pattern]) => pattern.test(message)); return found ? found[1] : message;
@@ -101,6 +106,64 @@
   elements.addPrizeButton.addEventListener("click", () => addEditorRow(elements.prizeEditor, "prize", "", 1));
   elements.addPersonButton.addEventListener("click", () => addEditorRow(elements.personEditor, "person", "", 1));
 
+  function closeEditRoom() { elements.editRoomModal.classList.add("hidden"); }
+
+  async function openEditRoom() {
+    if (!state.adminToken) { showToast("请先从管理入口登录"); return; }
+    elements.editRoomButton.disabled = true;
+    try {
+      const settings = await rpc("get_lottery_admin_settings", { p_admin_token: state.adminToken, p_room_code: state.code });
+      state.adminSettings = settings;
+      elements.editEventTitle.value = settings.title;
+      elements.editPrizeEditor.replaceChildren();
+      (settings.prizes || []).forEach(prize => addEditorRow(elements.editPrizeEditor, "prize", prize.name, prize.quantity, prize.rarity || "standard"));
+      if (!elements.editPrizeEditor.children.length) addEditorRow(elements.editPrizeEditor, "prize", "", 1);
+      elements.editPersonEditor.replaceChildren();
+      (settings.participant_limits || []).forEach(person => addEditorRow(elements.editPersonEditor, "person", person.name, person.limit));
+      elements.editTotalCards.value = settings.total_cards;
+      elements.editDefaultMaxDraws.value = settings.max_draws_per_person;
+      const modeNames = { blind: "盲盒翻牌", group: "全群抽选", raffle: "报名开奖" };
+      elements.editRoomModeNote.textContent = `活动模式：${modeNames[settings.mode] || settings.mode}（活动创建后模式不变）`;
+      elements.editTotalCardsBlock.classList.toggle("hidden", settings.mode !== "group");
+      elements.editLimitBlock.classList.toggle("hidden", settings.mode === "raffle");
+      elements.editParticipantsBlock.classList.toggle("hidden", settings.mode === "raffle");
+      elements.addEditPrizeButton.classList.toggle("hidden", settings.mode === "group");
+      elements.editSafetyNote.textContent = settings.has_activity
+        ? "已有参与记录：活动名称可以直接修改。为保护现有结果，奖品、数量和参与次数如需变更，请先关闭窗口并清空记录。"
+        : "目前还没有参与记录，所有设置都可以直接修改。";
+      elements.editSafetyNote.classList.toggle("warning", settings.has_activity);
+      elements.editRoomModal.classList.remove("hidden");
+      elements.editEventTitle.focus();
+    } catch (error) {
+      if (/管理员|admin/i.test(error.message)) { state.adminToken = ""; sessionStorage.removeItem("lottery-admin-token"); }
+      showToast(error.message);
+    } finally { elements.editRoomButton.disabled = false; }
+  }
+
+  elements.addEditPrizeButton.addEventListener("click", () => addEditorRow(elements.editPrizeEditor, "prize", "", 1));
+  elements.addEditPersonButton.addEventListener("click", () => addEditorRow(elements.editPersonEditor, "person", "", 1));
+  elements.editRoomButton.addEventListener("click", openEditRoom);
+  elements.cancelEditRoomButton.addEventListener("click", closeEditRoom);
+  elements.editRoomModal.querySelector(".modal-backdrop").addEventListener("click", closeEditRoom);
+  elements.editRoomForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const mode = state.adminSettings?.mode;
+    const prizes = readRows(elements.editPrizeEditor, "prize-name", "prize-qty");
+    const total = mode === "blind" ? prizes.reduce((sum, prize) => sum + prize.quantity, 0) : mode === "raffle" ? 9999 : Number(elements.editTotalCards.value);
+    const participants = mode === "raffle" ? [] : readRows(elements.editPersonEditor, "person-name", "person-limit").map(person => ({ name: person.name, limit: person.quantity }));
+    const defaultLimit = mode === "raffle" ? 1 : Number(elements.editDefaultMaxDraws.value);
+    const title = cleanName(elements.editEventTitle.value);
+    if (!title || !prizes.length || prizes.some(prize => !prize.name || prize.quantity < 1) || total < 2 || (mode === "group" && prizes.length !== 1) || (mode === "group" && prizes[0].quantity > total)) return showToast("请把活动设置填写完整");
+    event.submitter.disabled = true;
+    try {
+      await rpc("update_lottery_room", { p_admin_token: state.adminToken, p_room_code: state.code, p_title: title, p_total_cards: total, p_default_max_draws: defaultLimit, p_prizes: prizes, p_participant_limits: participants });
+      closeEditRoom();
+      await loadRoom(true);
+      showToast("活动设置已保存");
+    } catch (error) { showToast(error.message); }
+    finally { event.submitter.disabled = false; }
+  });
+
   async function loadRoom(silent = false) {
     if (!state.code || document.hidden || state.busyCard !== null) return;
     try {
@@ -116,7 +179,7 @@
     clearInterval(state.pollTimer); state.pollTimer = setInterval(() => loadRoom(true), 2500);
   }
 
-  function leaveRoom() { clearInterval(state.pollTimer); Object.assign(state, { code: "", name: "", room: null, draws: [], entries: [], hasRenderedRoom: false }); elements.roomView.classList.add("hidden"); elements.landingView.classList.remove("hidden"); history.replaceState(null, "", isAdminRoute ? `${location.pathname}?admin=1` : location.pathname); if (isAdminRoute) setTab("create"); }
+  function leaveRoom() { clearInterval(state.pollTimer); closeEditRoom(); Object.assign(state, { code: "", name: "", ownerToken: "", room: null, draws: [], entries: [], adminSettings: null, hasRenderedRoom: false }); elements.roomView.classList.add("hidden"); elements.landingView.classList.remove("hidden"); history.replaceState(null, "", isAdminRoute ? `${location.pathname}?admin=1` : location.pathname); if (isAdminRoute) setTab("create"); }
 
   function renderRoom() {
     if (!state.room) return; const room = state.room; const isRaffle = room.mode === "raffle"; const isBlind = room.mode === "blind";
@@ -128,7 +191,7 @@
     if (isRaffle) { labels[0].textContent = "已报名"; labels[1].textContent = "获奖名额"; labels[2].textContent = "活动状态"; labels[3].textContent = "我的状态"; elements.remainingStat.textContent = state.entries.length; elements.winnerStat.textContent = prizeTotal; elements.limitStat.textContent = room.phase === "drawn" ? "已开奖" : room.is_open ? "报名中" : "已暂停"; elements.mineStat.textContent = state.name ? (joined ? "已报名" : "未报名") : "—"; }
     else { labels[0].textContent = isBlind ? "剩余盲盒" : "剩余抽选"; labels[1].textContent = isBlind ? "款式数量" : "剩余礼物"; labels[2].textContent = "你的次数"; labels[3].textContent = "你已抽取"; elements.remainingStat.textContent = remaining; elements.winnerStat.textContent = isBlind ? room.prizes.length : Math.max(0, prizeTotal - awarded); elements.limitStat.textContent = room.my_limit ?? "—"; elements.mineStat.textContent = state.name ? mine.length : "—"; }
     elements.drawCount.textContent = isRaffle ? `${state.entries.length} 人报名` : `${state.draws.length} 条`;
-    elements.shareBox.classList.toggle("hidden", !state.ownerToken); elements.adminPanel.classList.toggle("hidden", !state.ownerToken); elements.drawWinnersButton.classList.toggle("hidden", !isRaffle || room.phase === "drawn"); elements.toggleRoomButton.classList.toggle("hidden", isRaffle && room.phase === "drawn"); elements.toggleRoomButton.textContent = room.is_open ? (isRaffle ? "暂停报名" : "暂停抽选") : (isRaffle ? "继续报名" : "继续抽选");
+    elements.shareBox.classList.toggle("hidden", !state.ownerToken); elements.adminPanel.classList.toggle("hidden", !state.ownerToken); elements.editRoomButton.classList.toggle("hidden", !state.adminToken); elements.drawWinnersButton.classList.toggle("hidden", !isRaffle || room.phase === "drawn"); elements.toggleRoomButton.classList.toggle("hidden", isRaffle && room.phase === "drawn"); elements.toggleRoomButton.textContent = room.is_open ? (isRaffle ? "暂停报名" : "暂停抽选") : (isRaffle ? "继续报名" : "继续抽选");
     renderPrizeLegend(); if (isRaffle) renderRaffle(joined); else renderCards(mine); renderHistory(isRaffle);
   }
 

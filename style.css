@@ -673,3 +673,35 @@ input:focus { border-color: #9a86e6; box-shadow: 0 0 0 4px rgba(139,120,220,.1);
   .editor-row.prize-row { grid-template-columns: minmax(0,1fr) 66px 86px 30px; gap: 5px; }
   .rarity-select { padding-inline: 5px; font-size: .72rem; }
 }
+
+.admin-actions { flex-wrap: wrap; justify-content: flex-end; }
+.edit-room-box {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: min(88vh, 780px);
+  overflow: auto;
+  padding: 26px;
+  border: 1px solid #eadfe6;
+  border-radius: 24px;
+  background: #fffaf7;
+  box-shadow: 0 24px 80px rgba(77,60,70,.24);
+  animation: reveal-in .35s cubic-bezier(.2,.9,.25,1.1) both;
+}
+.edit-room-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.edit-room-heading p { margin: 0 0 3px; color: #8b78dc; font-size: .72rem; font-weight: 900; letter-spacing: .15em; }
+.edit-room-heading h2 { margin: 0; color: #382f3a; font-size: 1.7rem; }
+.modal-close { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid #e7dce4; border-radius: 50%; color: #6d606d; background: #fff; font-size: 1.35rem; }
+.edit-room-box > label, .edit-room-box .config-block label { display: block; margin: 13px 0 7px; color: #5d505f; font-size: .82rem; font-weight: 800; }
+.edit-room-box input, .edit-room-box select { width: 100%; color: #443a46; border: 1px solid #ded4df; background: #fff; }
+.edit-room-box > input { min-height: 47px; padding: 0 13px; border-radius: 12px; }
+.edit-room-box .config-block { margin-top: 16px; background: rgba(255,255,255,.68); }
+.edit-room-box .primary-button { width: 100%; margin-top: 18px; justify-content: center; }
+.edit-safety-note { margin: 15px 0 0; padding: 11px 13px; border-radius: 12px; color: #52705e; background: #eef8f1; font-size: .78rem; line-height: 1.55; }
+.edit-safety-note.warning { color: #895c33; background: #fff4df; }
+
+@media (max-width: 600px) {
+  .modal { padding: 10px; }
+  .edit-room-box { max-height: 94vh; padding: 20px 15px; border-radius: 20px; }
+  .admin-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .admin-actions button { min-width: 0; }
+}
