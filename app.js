@@ -15,6 +15,7 @@
     shareBox: $("shareBox"), roomCodeDisplay: $("roomCodeDisplay"), prizeLegend: $("prizeLegend"), remainingLabel: $("remainingLabel"), prizeStatLabel: $("prizeStatLabel"),
     remainingStat: $("remainingStat"), winnerStat: $("winnerStat"), limitStat: $("limitStat"), mineStat: $("mineStat"), roomNotice: $("roomNotice"),
     cardGrid: $("cardGrid"), historyList: $("historyList"), drawCount: $("drawCount"), adminPanel: $("adminPanel"), toggleRoomButton: $("toggleRoomButton"),
+    remainingPrizeTotal: $("remainingPrizeTotal"), remainingPrizeList: $("remainingPrizeList"), personSummaryCount: $("personSummaryCount"), personSummaryList: $("personSummaryList"),
     resetRoomButton: $("resetRoomButton"), drawWinnersButton: $("drawWinnersButton"), editRoomButton: $("editRoomButton"),
     editRoomModal: $("editRoomModal"), editRoomForm: $("editRoomForm"), cancelEditRoomButton: $("cancelEditRoomButton"), editEventTitle: $("editEventTitle"),
     editPrizeEditor: $("editPrizeEditor"), addEditPrizeButton: $("addEditPrizeButton"), editTotalCardsBlock: $("editTotalCardsBlock"), editTotalCards: $("editTotalCards"),
@@ -192,7 +193,7 @@
     else { labels[0].textContent = isBlind ? "剩余盲盒" : "剩余抽选"; labels[1].textContent = isBlind ? "款式数量" : "剩余礼物"; labels[2].textContent = "你的次数"; labels[3].textContent = "你已抽取"; elements.remainingStat.textContent = remaining; elements.winnerStat.textContent = isBlind ? room.prizes.length : Math.max(0, prizeTotal - awarded); elements.limitStat.textContent = room.my_limit ?? "—"; elements.mineStat.textContent = state.name ? mine.length : "—"; }
     elements.drawCount.textContent = isRaffle ? `${state.entries.length} 人报名` : `${state.draws.length} 条`;
     elements.shareBox.classList.toggle("hidden", !state.ownerToken); elements.adminPanel.classList.toggle("hidden", !state.ownerToken); elements.editRoomButton.classList.toggle("hidden", !state.adminToken); elements.drawWinnersButton.classList.toggle("hidden", !isRaffle || room.phase === "drawn"); elements.toggleRoomButton.classList.toggle("hidden", isRaffle && room.phase === "drawn"); elements.toggleRoomButton.textContent = room.is_open ? (isRaffle ? "暂停报名" : "暂停抽选") : (isRaffle ? "继续报名" : "继续抽选");
-    renderPrizeLegend(); if (isRaffle) renderRaffle(joined); else renderCards(mine); renderHistory(isRaffle);
+    renderPrizeLegend(); if (isRaffle) renderRaffle(joined); else renderCards(mine); renderHistory(isRaffle); if (state.ownerToken) renderAdminSummary(isRaffle);
   }
 
   function renderPrizeLegend() {
@@ -227,6 +228,55 @@
   function renderHistory(isRaffle) {
     const items = isRaffle ? state.draws : [...state.draws].reverse(); if (!items.length) { const empty = document.createElement("div"); empty.className = "empty-state"; empty.textContent = isRaffle ? "还没有公布获奖名单。" : "还没有人打开盲盒。"; elements.historyList.replaceChildren(empty); return; }
     const fragment = document.createDocumentFragment(); items.forEach((draw, index) => { const row = document.createElement("div"); row.className = "history-item"; const no = document.createElement("span"); no.className = "history-number"; no.textContent = isRaffle ? String(index + 1) : `#${draw.card_number}`; const name = document.createElement("span"); name.className = "history-name"; name.textContent = draw.participant_name; const result = document.createElement("span"); result.className = `history-result${draw.prize_name ? " win" : ""}`; result.textContent = draw.prize_name || "本次未抽中"; row.append(no, name, result); fragment.append(row); }); elements.historyList.replaceChildren(fragment);
+  }
+
+  function renderAdminSummary(isRaffle) {
+    const wonByPrize = new Map();
+    state.draws.forEach(draw => { if (draw.prize_name) wonByPrize.set(draw.prize_name, (wonByPrize.get(draw.prize_name) || 0) + 1); });
+    const remainingFragment = document.createDocumentFragment();
+    let remainingTotal = 0;
+    state.room.prizes.forEach(prize => {
+      const remaining = Math.max(0, Number(prize.quantity) - (wonByPrize.get(prize.name) || 0));
+      remainingTotal += remaining;
+      const row = document.createElement("div"); row.className = `remaining-prize-item${remaining === 0 ? " empty" : ""}`;
+      const name = document.createElement("span"); name.textContent = prize.name;
+      const count = document.createElement("strong"); count.textContent = remaining === 0 ? "已抽完" : `剩 ${remaining}`;
+      row.append(name, count); remainingFragment.append(row);
+    });
+    elements.remainingPrizeTotal.textContent = `${remainingTotal} 件`;
+    elements.remainingPrizeList.replaceChildren(remainingFragment);
+
+    const people = new Map();
+    const ensurePerson = name => {
+      const key = cleanName(name).toLowerCase();
+      if (!people.has(key)) people.set(key, { name: cleanName(name), draws: 0, blanks: 0, prizes: new Map(), joined: false });
+      return people.get(key);
+    };
+    state.entries.forEach(entry => { ensurePerson(entry.participant_name).joined = true; });
+    state.draws.forEach(draw => {
+      const person = ensurePerson(draw.participant_name); person.draws += 1;
+      if (draw.prize_name) person.prizes.set(draw.prize_name, (person.prizes.get(draw.prize_name) || 0) + 1);
+      else person.blanks += 1;
+    });
+    const personFragment = document.createDocumentFragment();
+    [...people.values()].sort((a, b) => a.name.localeCompare(b.name, "zh-CN")).forEach(person => {
+      const row = document.createElement("div"); row.className = "person-summary-item";
+      const heading = document.createElement("div"); heading.className = "person-summary-name";
+      const name = document.createElement("strong"); name.textContent = person.name;
+      const count = document.createElement("span"); count.textContent = isRaffle ? "已报名" : `抽了 ${person.draws} 次`;
+      heading.append(name, count);
+      const detail = document.createElement("div"); detail.className = "person-summary-detail";
+      if (person.prizes.size) {
+        person.prizes.forEach((quantity, prizeName) => { const chip = document.createElement("span"); chip.className = "person-prize-chip"; chip.textContent = `${prizeName} × ${quantity}`; detail.append(chip); });
+      } else {
+        const empty = document.createElement("span"); empty.className = "person-empty-result"; empty.textContent = isRaffle ? (state.room.phase === "drawn" ? "本轮未中选" : "等待开奖") : (person.blanks ? `未抽中 × ${person.blanks}` : "暂无记录"); detail.append(empty);
+      }
+      if (!isRaffle && person.prizes.size && person.blanks) { const blank = document.createElement("span"); blank.className = "person-empty-result"; blank.textContent = `未抽中 × ${person.blanks}`; detail.append(blank); }
+      row.append(heading, detail); personFragment.append(row);
+    });
+    if (!people.size) { const empty = document.createElement("div"); empty.className = "summary-empty"; empty.textContent = isRaffle ? "还没有人报名" : "还没有人抽取"; personFragment.append(empty); }
+    elements.personSummaryCount.textContent = `${people.size} 人`;
+    elements.personSummaryList.replaceChildren(personFragment);
   }
 
   async function drawCard(cardNumber) {

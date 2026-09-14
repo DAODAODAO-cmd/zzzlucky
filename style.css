@@ -705,3 +705,35 @@ input:focus { border-color: #9a86e6; box-shadow: 0 0 0 4px rgba(139,120,220,.1);
   .admin-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .admin-actions button { min-width: 0; }
 }
+
+.admin-panel { display: grid; align-items: stretch; }
+.admin-panel > .admin-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.admin-panel-head > div:first-child { display: grid; }
+.admin-summary { display: grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap: 12px; width: 100%; }
+.admin-summary-card { min-width: 0; padding: 16px; border: 1px solid #eee4ea; border-radius: 16px; background: rgba(255,255,255,.84); }
+.admin-summary-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.admin-summary-title small { color: #9a86dc; font-size: .62rem; font-weight: 900; letter-spacing: .14em; }
+.admin-summary-title h3 { margin: 2px 0 0; color: #493e4b; font-size: 1rem; }
+.admin-summary-title > strong { padding: 5px 9px; border-radius: 999px; color: #7a65c5; background: #f1edff; font-size: .72rem; white-space: nowrap; }
+.remaining-prize-list, .person-summary-list { display: grid; gap: 7px; }
+.person-summary-list { max-height: 310px; overflow: auto; padding-right: 3px; }
+.remaining-prize-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 7px 10px; border-radius: 10px; color: #5b4e5c; background: #fff7e8; }
+.remaining-prize-item span { overflow: hidden; font-size: .8rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.remaining-prize-item strong { color: #cf8248; font-size: .75rem; white-space: nowrap; }
+.remaining-prize-item.empty { color: #9a929a; background: #f5f2f4; }
+.remaining-prize-item.empty strong { color: #9a929a; }
+.person-summary-item { display: grid; gap: 7px; padding: 10px; border: 1px solid #f0e8ed; border-radius: 12px; background: #fff; }
+.person-summary-name { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.person-summary-name strong { min-width: 0; overflow: hidden; color: #4d414f; font-size: .83rem; text-overflow: ellipsis; white-space: nowrap; }
+.person-summary-name span { color: #948792; font-size: .68rem; white-space: nowrap; }
+.person-summary-detail { display: flex; flex-wrap: wrap; gap: 5px; }
+.person-prize-chip, .person-empty-result { padding: 4px 7px; border-radius: 8px; font-size: .68rem; }
+.person-prize-chip { color: #93602f; background: #fff0d3; }
+.person-empty-result { color: #877b86; background: #f4f0f3; }
+.summary-empty { padding: 24px 10px; color: #978b96; font-size: .78rem; text-align: center; }
+
+@media (max-width: 780px) {
+  .admin-panel > .admin-panel-head { align-items: stretch; flex-direction: column; }
+  .admin-summary { grid-template-columns: 1fr; }
+  .person-summary-list { max-height: 360px; }
+}
