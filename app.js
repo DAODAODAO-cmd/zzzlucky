@@ -284,10 +284,11 @@
     [...state.draws].sort((a, b) => Number(a.draw_order || 0) - Number(b.draw_order || 0)).forEach(draw => {
       if (!draw.prize_name) return;
       const key = cleanName(draw.participant_name).toLowerCase();
-      if (!people.has(key)) people.set(key, { name: cleanName(draw.participant_name), prizes: [] });
-      people.get(key).prizes.push(draw.prize_name);
+      if (!people.has(key)) people.set(key, { name: cleanName(draw.participant_name), prizes: new Map() });
+      const prizes = people.get(key).prizes;
+      prizes.set(draw.prize_name, (prizes.get(draw.prize_name) || 0) + 1);
     });
-    const text = [...people.values()].map(person => `${person.name}：${person.prizes.join(" ")}`).join("\n");
+    const text = [...people.values()].map(person => `${person.name}：${[...person.prizes].map(([name, quantity]) => `${name}${quantity}`).join(" ")}`).join("\n");
     if (!text) { showToast("目前还没有可复制的中奖结果"); return; }
     try { await navigator.clipboard.writeText(text); showToast(`已复制 ${people.size} 人的结果`); }
     catch { window.prompt("复制下面的抽奖结果：", text); }
