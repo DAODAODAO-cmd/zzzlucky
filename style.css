@@ -714,7 +714,10 @@ input:focus { border-color: #9a86e6; box-shadow: 0 0 0 4px rgba(139,120,220,.1);
 .admin-summary-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .admin-summary-title small { color: #9a86dc; font-size: .62rem; font-weight: 900; letter-spacing: .14em; }
 .admin-summary-title h3 { margin: 2px 0 0; color: #493e4b; font-size: 1rem; }
-.admin-summary-title > strong { padding: 5px 9px; border-radius: 999px; color: #7a65c5; background: #f1edff; font-size: .72rem; white-space: nowrap; }
+.admin-summary-title > strong, .summary-title-actions > strong { padding: 5px 9px; border-radius: 999px; color: #7a65c5; background: #f1edff; font-size: .72rem; white-space: nowrap; }
+.summary-title-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.summary-copy-button { min-height: 28px; padding: 0 9px; border: 1px solid #ddd2eb; border-radius: 999px; color: #6f5db5; background: #fff; font-size: .68rem; font-weight: 800; white-space: nowrap; }
+.summary-copy-button:hover { border-color: #b9a9df; background: #f8f5ff; }
 .remaining-prize-list, .person-summary-list { display: grid; gap: 7px; }
 .person-summary-list { max-height: 310px; overflow: auto; padding-right: 3px; }
 .remaining-prize-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 7px 10px; border-radius: 10px; color: #5b4e5c; background: #fff7e8; }

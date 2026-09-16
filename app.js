@@ -15,7 +15,7 @@
     shareBox: $("shareBox"), roomCodeDisplay: $("roomCodeDisplay"), prizeLegend: $("prizeLegend"), remainingLabel: $("remainingLabel"), prizeStatLabel: $("prizeStatLabel"),
     remainingStat: $("remainingStat"), winnerStat: $("winnerStat"), limitStat: $("limitStat"), mineStat: $("mineStat"), roomNotice: $("roomNotice"),
     cardGrid: $("cardGrid"), historyList: $("historyList"), drawCount: $("drawCount"), adminPanel: $("adminPanel"), toggleRoomButton: $("toggleRoomButton"),
-    remainingPrizeTotal: $("remainingPrizeTotal"), remainingPrizeList: $("remainingPrizeList"), personSummaryCount: $("personSummaryCount"), personSummaryList: $("personSummaryList"),
+    remainingPrizeTotal: $("remainingPrizeTotal"), remainingPrizeList: $("remainingPrizeList"), personSummaryCount: $("personSummaryCount"), personSummaryList: $("personSummaryList"), copySummaryButton: $("copySummaryButton"),
     resetRoomButton: $("resetRoomButton"), drawWinnersButton: $("drawWinnersButton"), editRoomButton: $("editRoomButton"),
     editRoomModal: $("editRoomModal"), editRoomForm: $("editRoomForm"), cancelEditRoomButton: $("cancelEditRoomButton"), editEventTitle: $("editEventTitle"),
     editPrizeEditor: $("editPrizeEditor"), addEditPrizeButton: $("addEditPrizeButton"), editTotalCardsBlock: $("editTotalCardsBlock"), editTotalCards: $("editTotalCards"),
@@ -279,6 +279,20 @@
     elements.personSummaryList.replaceChildren(personFragment);
   }
 
+  async function copyResultSummary() {
+    const people = new Map();
+    [...state.draws].sort((a, b) => Number(a.draw_order || 0) - Number(b.draw_order || 0)).forEach(draw => {
+      if (!draw.prize_name) return;
+      const key = cleanName(draw.participant_name).toLowerCase();
+      if (!people.has(key)) people.set(key, { name: cleanName(draw.participant_name), prizes: [] });
+      people.get(key).prizes.push(draw.prize_name);
+    });
+    const text = [...people.values()].map(person => `${person.name}：${person.prizes.join(" ")}`).join("\n");
+    if (!text) { showToast("目前还没有可复制的中奖结果"); return; }
+    try { await navigator.clipboard.writeText(text); showToast(`已复制 ${people.size} 人的结果`); }
+    catch { window.prompt("复制下面的抽奖结果：", text); }
+  }
+
   async function drawCard(cardNumber) {
     if (state.busyCard !== null) return; state.busyCard = cardNumber; renderRoom();
     try { const result = await rpc("draw_lottery_card", { p_room_code: state.code, p_participant_name: state.name, p_card_number: cardNumber }); await animateCard(cardNumber, result); state.busyCard = null; await loadRoom(true); showReveal(result); }
@@ -300,6 +314,7 @@
   elements.joinPanel.addEventListener("submit", async event => { event.preventDefault(); const code=cleanCode(elements.roomCode.value), name=cleanName(elements.participantName.value); if (code.length!==6||!name) return showToast("请填写活动码和名字"); event.submitter.disabled=true; try { const data=await rpc("get_lottery_room",{p_room_code:code,p_participant_name:name}); enterRoom(code,name); state.room=data.room; state.draws=data.draws||[]; state.entries=data.entries||[]; localStorage.setItem(`lottery-name-${code}`,name); renderRoom(); } catch(error){showToast(error.message);} finally{event.submitter.disabled=false;} });
   elements.createPanel.addEventListener("submit", async event => { event.preventDefault(); const mode=currentMode(); let prizes,total; if(mode==="group"){prizes=[{name:cleanName(elements.groupPrizeName.value),quantity:Number(elements.groupPrizeQuantity.value),rarity:elements.groupPrizeRarity.value}];total=Number(elements.groupTotalCards.value);}else{prizes=readRows(elements.prizeEditor,"prize-name","prize-qty");total=mode==="raffle"?9999:prizes.reduce((s,p)=>s+p.quantity,0);} const participants=mode!=="raffle"&&currentLimitMode()==="named"?readRows(elements.personEditor,"person-name","person-limit").map(p=>({name:p.name,limit:p.quantity})):[]; const defaultLimit=mode==="raffle"?1:Number(elements.defaultMaxDraws.value); if(!cleanName(elements.eventTitle.value)||!prizes.length||prizes.some(p=>!p.name||p.quantity<1)||total<2||(mode==="group"&&prizes[0].quantity>total)||(currentLimitMode()==="named"&&mode!=="raffle"&&!participants.length)) return showToast("请把活动设置填写完整"); event.submitter.disabled=true; try{const data=await rpc("create_lottery_room",{p_admin_token:state.adminToken,p_title:cleanName(elements.eventTitle.value),p_mode:mode,p_total_cards:total,p_default_max_draws:defaultLimit,p_prizes:prizes,p_participant_limits:participants});localStorage.setItem(`lottery-owner-${data.room_code}`,data.owner_token);enterRoom(data.room_code,"",data.owner_token);await loadRoom(true);showToast("活动创建成功");}catch(error){if(/管理员|admin/i.test(error.message)){state.adminToken="";sessionStorage.removeItem("lottery-admin-token");setTab("create");}showToast(error.message);}finally{event.submitter.disabled=false;} });
   elements.copyLinkButton.addEventListener("click",async()=>{const url=`${location.origin}${location.pathname}?room=${state.code}`;try{await navigator.clipboard.writeText(url);showToast("邀请链接已复制");}catch{window.prompt("复制邀请链接：",url);}});
+  elements.copySummaryButton.addEventListener("click",copyResultSummary);
   elements.toggleRoomButton.addEventListener("click",async()=>{try{await rpc("set_lottery_room_open",{p_room_code:state.code,p_owner_token:state.ownerToken,p_is_open:!state.room.is_open});await loadRoom(true);showToast(state.room.is_open?"活动已继续":"活动已暂停");}catch(error){showToast(error.message);}});
   elements.resetRoomButton.addEventListener("click",async()=>{if(!confirm("确定清空本次活动的全部记录吗？"))return;try{await rpc("reset_lottery_room",{p_room_code:state.code,p_owner_token:state.ownerToken});await loadRoom(true);showToast("记录已清空");}catch(error){showToast(error.message);}});
   elements.drawWinnersButton.addEventListener("click",drawRaffleWinners); elements.closeRevealButton.addEventListener("click",()=>elements.revealModal.classList.add("hidden")); elements.revealModal.querySelector(".modal-backdrop").addEventListener("click",()=>elements.revealModal.classList.add("hidden")); elements.homeButton.addEventListener("click",leaveRoom); window.addEventListener("focus",()=>loadRoom(true)); updateCreateUI(); if (isAdminRoute && !queryCode) setTab("create");
