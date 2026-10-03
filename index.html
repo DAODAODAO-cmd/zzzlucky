@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#fffaf6">
   <meta name="description" content="东映圆谷又99了群友专用抽选页面">
   <title>今天谁吃谷｜东映圆谷又99了</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261003-2">
 </head>
 <body>
   <div class="page-orb orb-one" aria-hidden="true"></div>
@@ -21,6 +21,10 @@
 
     <section id="setupWarning" class="setup-warning hidden" role="alert">
       <strong>还差一步配置</strong><span>请按照 README.md 接入 Supabase 数据库。</span>
+    </section>
+    <section id="browserWarning" class="browser-warning hidden" role="alert">
+      <div><strong>QQ 内置浏览器可能连不上活动</strong><span>请点右上角“…” → 在浏览器打开，再进入活动。</span></div>
+      <button id="closeBrowserWarning" type="button" aria-label="关闭提示">×</button>
     </section>
 
     <section id="landingView" class="landing-view">
@@ -138,6 +142,6 @@
 
   <div id="revealModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="revealTitle"><div class="modal-backdrop"></div><div class="reveal-box"><div id="revealIcon" class="reveal-icon">✦</div><p id="revealKicker">第 1 个盲盒</p><h2 id="revealTitle">打开成功</h2><p id="revealText"></p><button id="closeRevealButton" class="primary-button" type="button"><span>收下结果</span><b aria-hidden="true">→</b></button></div></div>
   <div id="celebrationLayer" class="celebration-layer" aria-hidden="true"></div><div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="config.js"></script><script src="app.js"></script>
+  <script src="config.js?v=20261003-2"></script><script src="app.js?v=20261003-2"></script>
 </body>
 </html>

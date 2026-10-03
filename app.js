@@ -3,10 +3,11 @@
   const config = window.LOTTERY_CONFIG || {};
   const configured = /^https:\/\/.+\.supabase\.co$/i.test(config.supabaseUrl || "") && config.supabaseAnonKey && !config.supabaseAnonKey.startsWith("YOUR_");
   const isAdminRoute = new URLSearchParams(location.search).get("admin") === "1";
+  const isQQBrowser = /MQQBrowser|QQ\//i.test(navigator.userAgent || "");
   const state = { code: "", name: "", ownerToken: "", adminToken: sessionStorage.getItem("lottery-admin-token") || "", room: null, draws: [], entries: [], adminSettings: null, pollTimer: null, busyCard: null, hasRenderedRoom: false };
   const $ = (id) => document.getElementById(id);
   const elements = {
-    landingView: $("landingView"), roomView: $("roomView"), setupWarning: $("setupWarning"), entryTabs: $("entryTabs"), joinTab: $("joinTab"), createTab: $("createTab"),
+    landingView: $("landingView"), roomView: $("roomView"), setupWarning: $("setupWarning"), browserWarning: $("browserWarning"), closeBrowserWarning: $("closeBrowserWarning"), entryTabs: $("entryTabs"), joinTab: $("joinTab"), createTab: $("createTab"),
     joinPanel: $("joinPanel"), adminLoginPanel: $("adminLoginPanel"), adminPassword: $("adminPassword"), createPanel: $("createPanel"), adminRoomCode: $("adminRoomCode"), openAdminRoomButton: $("openAdminRoomButton"), roomCode: $("roomCode"), participantName: $("participantName"), eventTitle: $("eventTitle"),
     blindPrizeBlock: $("blindPrizeBlock"), groupPrizeBlock: $("groupPrizeBlock"), prizeEditor: $("prizeEditor"), boxTotalNote: $("boxTotalNote"),
     addPrizeButton: $("addPrizeButton"), groupPrizeName: $("groupPrizeName"), groupPrizeQuantity: $("groupPrizeQuantity"), groupTotalCards: $("groupTotalCards"), groupPrizeRarity: $("groupPrizeRarity"),
@@ -26,6 +27,7 @@
   };
 
   if (!configured) elements.setupWarning.classList.remove("hidden");
+  if (isQQBrowser && sessionStorage.getItem("hide-qq-browser-warning") !== "1") elements.browserWarning.classList.remove("hidden");
   if (isAdminRoute) { elements.createTab.classList.remove("hidden"); elements.entryTabs.classList.remove("single"); }
   if (config.brandLogoUrl) {
     elements.brandLogo.src = config.brandLogoUrl;
@@ -43,12 +45,30 @@
   function showToast(message) { elements.toast.textContent = message; elements.toast.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove("show"), 2300); }
   function ensureConfigured() { if (configured) return true; showToast("请先按照说明完成数据库配置"); return false; }
 
+  const safelyRetryableRpc = new Set(["get_lottery_room", "admin_open_room", "get_lottery_admin_settings"]);
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function rpc(name, params = {}) {
     if (!ensureConfigured()) throw new Error("网站尚未连接数据库");
-    const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${name}`, { method: "POST", headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` }, body: JSON.stringify(params) });
-    let payload = null; try { payload = await response.json(); } catch { /* no body */ }
-    if (!response.ok) throw new Error(translateError(payload?.message || payload?.hint || "网络繁忙，请稍后再试"));
-    return payload;
+    const baseUrl = String(config.apiProxyUrl || config.supabaseUrl).replace(/\/$/, "");
+    const attempts = safelyRetryableRpc.has(name) ? 3 : 1;
+    let lastError = null;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const controller = typeof AbortController === "function" ? new AbortController() : null; const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+      try {
+        const response = await fetch(`${baseUrl}/rest/v1/rpc/${name}`, { method: "POST", ...(controller ? { signal: controller.signal } : {}), headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` }, body: JSON.stringify(params) });
+        let payload = null; try { payload = await response.json(); } catch { /* no body */ }
+        if (!response.ok) throw new Error(translateError(payload?.message || payload?.hint || "网络繁忙，请稍后再试"));
+        return payload;
+      } catch (error) {
+        lastError = error;
+        const connectionFailure = error?.name === "AbortError" || /failed to fetch|network request failed|load failed/i.test(error?.message || "");
+        if (!connectionFailure || attempt === attempts) break;
+        await wait(500 * attempt);
+      } finally { clearTimeout(timer); }
+    }
+    const connectionFailure = lastError?.name === "AbortError" || /failed to fetch|network request failed|load failed/i.test(lastError?.message || "");
+    if (connectionFailure) throw new Error(isQQBrowser ? "QQ 内置浏览器连接失败，请点右上角“…”并选择在浏览器打开" : "连接活动服务器失败，请切换网络后重试");
+    throw lastError;
   }
 
   function translateError(message) {
@@ -62,7 +82,7 @@
       [/room has activity/i, "已经有人参与了。请先清空记录，再修改奖品、数量或参与次数；活动名称仍可直接修改。"],
       [/invalid room settings/i, "活动设置不完整，请检查后重试"], [/duplicate prize/i, "款式或奖项名称不能重复"],
       [/duplicate participant/i, "参与名单中有重复名字"], [/Could not find the function/i, "数据库还没升级：请在 Supabase 中运行 upgrade-editing.sql"],
-      [/Failed to fetch/i, "连接失败，请检查网络"]
+      [/Failed to fetch|Network request failed|Load failed/i, "连接活动服务器失败，请切换网络后重试"]
     ];
     const found = map.find(([pattern]) => pattern.test(message)); return found ? found[1] : message;
   }
@@ -309,6 +329,7 @@
   function launchCelebration(rarity="standard") { if (matchMedia("(prefers-reduced-motion: reduce)").matches) return; const palettes={standard:["#c7bce9","#eee9fa","#ffffff"],rare:["#6e9ce8","#806bd1","#b8d8ff","#ffffff"],limited:["#ffcf68","#ef8d9d","#f2ad68","#fff1a8","#ffffff"]}; const colors=palettes[rarity]||palettes.standard; const count=rarity==="limited"?72:rarity==="rare"?46:18; const fragment = document.createDocumentFragment(); for (let i=0;i<count;i+=1) { const p=document.createElement("i"); p.className=`confetti particle-${rarity}`; p.style.setProperty("--x",`${Math.random()*100}%`); p.style.setProperty("--w",`${5+Math.random()*7}px`); p.style.setProperty("--drift",`${-110+Math.random()*220}px`); p.style.setProperty("--spin",`${360+Math.random()*900}deg`); p.style.setProperty("--duration",`${1.5+Math.random()*1.5}s`); p.style.setProperty("--delay",`${Math.random()*.42}s`); p.style.setProperty("--color",colors[i%colors.length]); fragment.append(p); } elements.celebrationLayer.replaceChildren(fragment); setTimeout(()=>elements.celebrationLayer.replaceChildren(),3600); }
 
   elements.joinTab.addEventListener("click", () => setTab("join")); elements.createTab.addEventListener("click", () => setTab("create")); elements.roomCode.addEventListener("input", e => { e.target.value = cleanCode(e.target.value); });
+  elements.closeBrowserWarning.addEventListener("click", () => { elements.browserWarning.classList.add("hidden"); sessionStorage.setItem("hide-qq-browser-warning", "1"); });
   elements.adminLoginPanel.addEventListener("submit", async event => { event.preventDefault(); event.submitter.disabled=true; try { const token=await rpc("admin_login",{p_password:elements.adminPassword.value}); state.adminToken=token; sessionStorage.setItem("lottery-admin-token",token); elements.adminPassword.value=""; setTab("create"); showToast("管理员验证成功"); } catch(error) { showToast(error.message); } finally { event.submitter.disabled=false; } });
   elements.adminRoomCode.addEventListener("input", e => { e.target.value = cleanCode(e.target.value); });
   elements.openAdminRoomButton.addEventListener("click", async () => { const code=cleanCode(elements.adminRoomCode.value); if(code.length!==6)return showToast("请输入 6 位活动码"); elements.openAdminRoomButton.disabled=true; try{const ownerToken=await rpc("admin_open_room",{p_admin_token:state.adminToken,p_room_code:code});enterRoom(code,"",ownerToken);await loadRoom(true);showToast("已打开活动管理");}catch(error){if(/管理员|admin/i.test(error.message)){state.adminToken="";sessionStorage.removeItem("lottery-admin-token");setTab("create");}showToast(error.message);}finally{elements.openAdminRoomButton.disabled=false;} });
