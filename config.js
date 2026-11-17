@@ -3,5 +3,5 @@ window.LOTTERY_CONFIG = {
   supabaseUrl: "https://kgifcpdajnyhxxmenazz.supabase.co",
   supabaseAnonKey: "sb_publishable_Bvg4r_n3JiokW3cY3NDo3A_9M2CNfaU",
   apiProxyUrl: "",
-  brandLogoUrl: "logo.png"
+  brandLogoUrl: "logo.png?v=20261117-1"
 };

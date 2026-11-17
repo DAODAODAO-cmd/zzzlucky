@@ -740,3 +740,14 @@ input:focus { border-color: #9a86e6; box-shadow: 0 0 0 4px rgba(139,120,220,.1);
   .admin-summary { grid-template-columns: 1fr; }
   .person-summary-list { max-height: 360px; }
 }
+
+.browser-warning { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: -30px 0 28px; padding: 13px 15px; border: 1px solid #f1d79c; border-radius: 14px; color: #76552e; background: #fff6df; box-shadow: 0 8px 24px rgba(130,92,42,.08); }
+.browser-warning > div { display: grid; gap: 2px; }
+.browser-warning strong { font-size: .86rem; }
+.browser-warning span { color: #8b6d49; font-size: .75rem; line-height: 1.5; }
+.browser-warning button { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 50%; color: #86673f; background: rgba(255,255,255,.72); font-size: 1.15rem; }
+.toast { max-width: min(540px, calc(100% - 28px)); line-height: 1.45; text-align: center; white-space: normal; }
+
+@media (max-width: 780px) {
+  .browser-warning { margin-top: -10px; }
+}
